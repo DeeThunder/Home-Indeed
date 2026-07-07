@@ -15,37 +15,20 @@ Releases: https://github.com/DeeThunder/Home-Indeed/releases
 
 ## Downloads
 
-Each release publishes platform packages for:
+For the stable **v1.1.0** release:
 
-- Windows: `home-indeed-<version>-windows-x64-Installer.exe`
-- macOS: `home-indeed-<version>-macos-universal.pkg`
-- Ubuntu/Linux: `home-indeed-<version>-x86_64-linux-gnu.deb`
-- Ubuntu/Linux fallback archive: `home-indeed-<version>-x86_64-linux-gnu.zip`
+- **Windows**: [Download installer (home-indeed-1.1.0-windows-x64-Installer.exe)](https://github.com/DeeThunder/Home-Indeed/releases/download/1.1.0/home-indeed-1.1.0-windows-x64-Installer.exe)
+- **macOS (Experimental)**: `home-indeed-1.1.0-macos-universal.pkg` (See [Releases](https://github.com/DeeThunder/Home-Indeed/releases))
+- **Ubuntu/Linux (Experimental)**: `home-indeed-1.1.0-x86_64-linux-gnu.deb` (See [Releases](https://github.com/DeeThunder/Home-Indeed/releases))
 
 ## Install
 
-1. Install OBS Studio first.
-2. Download the package for your platform from the latest release.
-3. Follow the steps in `INSTALL.md` if you want the full platform-specific install flow.
-4. Restart OBS Studio after installation.
+> [!IMPORTANT]
+> Always install and configure **OBS Studio** before installing the Home Indeed plugin.
 
-### Windows
-
-Run the NSIS `.exe` installer.
-
-### macOS
-
-Open the `.pkg` installer. If macOS warns about unsigned software, approve the package in Privacy & Security.
-
-### Ubuntu / Linux
-
-Install the `.deb` package with:
-
-```bash
-sudo apt install ./home-indeed-<version>-x86_64-linux-gnu.deb
-```
-
-If you prefer an archive instead of a package manager install, use the `.zip` fallback from the release page.
+1. Download the package for your platform.
+2. Follow the steps in [INSTALL.md](INSTALL.md) for platform-specific installation instructions.
+3. Restart OBS Studio after installation.
 
 ## License
 GPL v2.0. See [LICENSE](LICENSE).
