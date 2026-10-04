@@ -57,6 +57,10 @@ bool HomeInDB::Open(const std::string& db_path) {
 void HomeInDB::RunMigration() {
     if (!db) return;
 
+    sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN language_code TEXT DEFAULT 'en';", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN translation_family TEXT DEFAULT 'English';", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN source_notes TEXT DEFAULT '';", nullptr, nullptr, nullptr);
+
     sqlite3_exec(db, 
         "CREATE TABLE IF NOT EXISTS books ("
         "id INTEGER PRIMARY KEY, "

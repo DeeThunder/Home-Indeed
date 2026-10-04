@@ -16,6 +16,8 @@ public:
     bool AutoSearch() const;
     bool AutoPush() const;
     QString GetDeepgramKey() const;
+    QString GetLanguageCode() const;
+    QString GetPerformanceMode() const;
     int GetLinesPerPage() const;
 
 signals:
@@ -27,6 +29,8 @@ private:
     QComboBox* align_combo;
     QComboBox* font_color_combo;
     QComboBox* lines_per_page_combo;
+    QComboBox* language_combo;
+    QComboBox* performance_combo;
     QCheckBox* auto_switch_tabs_checkbox;
     QCheckBox* auto_search_checkbox;
     QCheckBox* auto_push_checkbox;

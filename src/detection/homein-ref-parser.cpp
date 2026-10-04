@@ -2,6 +2,7 @@
 #include <unordered_set>
 #include <algorithm>
 #include <cctype>
+#include <map>
 
 static bool iequals(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -34,6 +35,33 @@ static const std::unordered_set<std::string> BIBLE_BOOKS = {
     "1 Peter", "2 Peter", "1 Pet", "2 Pet",
     "1 John", "2 John", "3 John", "Jude", "Revelation", "Revelations", "Rev"
 };
+
+static const std::map<std::string, std::string> BOOK_ALIASES = {
+    {"Genesisi", "Genesis"}, {"Jenesis", "Genesis"}, {"Farawa", "Genesis"},
+    {"Eksodu", "Exodus"}, {"Fitowa", "Exodus"}, {"Opupu", "Exodus"},
+    {"Nomba", "Numbers"}, {"Onuogugu", "Numbers"},
+    {"Matiu", "Matthew"}, {"Matta", "Matthew"},
+    {"Maku", "Mark"}, {"Marku", "Mark"}, {"Luku", "Luke"},
+    {"Johanu", "John"}, {"Johnu", "John"}, {"Joonu", "John"}, {"Yahaya", "John"},
+    {"1 Johanu", "1 John"}, {"1 Yahaya", "1 John"},
+    {"2 Johanu", "2 John"}, {"2 Yahaya", "2 John"},
+    {"3 Johanu", "3 John"}, {"3 Yahaya", "3 John"},
+    {"Ise", "Acts"}, {"Ayyukan", "Acts"}, {"Olu Ndi Ozi", "Acts"},
+    {"Romu", "Romans"}, {"Ndi Rom", "Romans"},
+    {"Orin Dafidi", "Psalms"}, {"Zabura", "Psalms"}, {"Abu Oma", "Psalms"},
+    {"Owe", "Proverbs"}, {"Karin Magana", "Proverbs"}, {"Ilu", "Proverbs"},
+    {"Ifihan", "Revelation"}, {"Wahayin", "Revelation"}, {"Nkpughe", "Revelation"}
+};
+
+static std::string ResolveBookAlias(const std::string& book_candidate) {
+    for (const auto& pair : BOOK_ALIASES) {
+        if (iequals(book_candidate, pair.first)) return pair.second;
+    }
+    for (const auto& book : BIBLE_BOOKS) {
+        if (iequals(book_candidate, book)) return book;
+    }
+    return {};
+}
 
 static std::string NormalizeSpokenNumbers(const std::string& t) {
     std::string out = t;
@@ -90,20 +118,37 @@ static std::string NormalizeSpokenNumbers(const std::string& t) {
     static const std::regex re_h0("\\b100and\\b", std::regex::icase);
     out = std::regex_replace(out, re_h0, "100");
 
+    static const std::vector<std::pair<std::regex, std::string>> west_african_nums = {
+        {std::regex("\\bokan\\b|\\bunu\\b|\\bdaya\\b", std::regex::icase), "1"},
+        {std::regex("\\beji\\b|\\babuo\\b|\\bbiyu\\b", std::regex::icase), "2"},
+        {std::regex("\\beta\\b|\\bato\\b|\\buku\\b", std::regex::icase), "3"},
+        {std::regex("\\berin\\b|\\bano\\b|\\bhudu\\b", std::regex::icase), "4"},
+        {std::regex("\\barun\\b|\\bise\\b|\\bbiyar\\b", std::regex::icase), "5"},
+        {std::regex("\\befa\\b|\\bisii\\b|\\bshida\\b", std::regex::icase), "6"},
+        {std::regex("\\beje\\b|\\basaa\\b|\\bbakwai\\b", std::regex::icase), "7"},
+        {std::regex("\\bejo\\b|\\basato\\b|\\btakwas\\b", std::regex::icase), "8"},
+        {std::regex("\\besan\\b|\\bitoolu\\b|\\btara\\b", std::regex::icase), "9"},
+        {std::regex("\\bewaa\\b|\\biri\\b|\\bgoma\\b", std::regex::icase), "10"},
+        {std::regex("\\bogun\\b|\\bishirin\\b", std::regex::icase), "20"}
+    };
+    for (const auto& p : west_african_nums) {
+        out = std::regex_replace(out, p.first, p.second);
+    }
+
     return out;
 }
 HomeInRefParser::HomeInRefParser() {
     try {
         standard_ref_regex = std::regex(
-            R"(\b((?:[123](?:st|nd|rd|th)?\s*)?[a-zA-Z]+(?:\s+of\s+[a-zA-Z]+)?)\s*)"
-            R"((?:chapter\s+)?(\d+)\s*)"
-            R"((?:\s*(?:from\s+)?verse\s+|\s*:\s*|\s*\.\s*|\s*,\s*|\s+))"
+            R"(\b((?:[123](?:st|nd|rd|th)?\s*)?[a-zA-Z]+(?:\s+(?:of\s+)?[a-zA-Z]+){0,3})\s*)"
+            R"((?:chapter|ori|surah|babi)?\s*(\d+)\s*)"
+            R"((?:\s*(?:from\s+)?(?:verse|v|amaokwu|aya)\s+|\s*:\s*|\s*\.\s*|\s*,\s*|\s+))"
             R"((\d+)(?:\s*(?:[-–]|through|to|and)\s*(\d+))?\b)",         
             std::regex_constants::icase
         );
 
         verse_only_regex = std::regex(
-            R"(\b(?:chapter\s+(\d+)\s+)?(?:from\s+)?(?:verse|v|vs|vrt|this\s+is|and\s+this\s+is|verses|section)\.?\s*(\d+)(?:\s*(?:-|–|to|through|and)\s*(\d+))?\b)",
+            R"(\b(?:(?:chapter|ori|surah|babi)\s+(\d+)\s+)?(?:from\s+)?(?:verse|v|vs|vrt|amaokwu|aya|this\s+is|and\s+this\s+is|verses|section)\.?\s*(\d+)(?:\s*(?:-|–|to|through|and)\s*(\d+))?\b)",
             std::regex_constants::icase
         );
     } catch (const std::regex_error&) {
@@ -130,10 +175,7 @@ std::vector<BibleRef> HomeInRefParser::Parse(const std::string& text) {
         book_candidate.erase(std::find_if(book_candidate.rbegin(), book_candidate.rend(),
             [](unsigned char ch){ return !std::isspace(ch); }).base(), book_candidate.end());
 
-        std::string found_name;
-        for (const auto& book : BIBLE_BOOKS) {
-            if (iequals(book_candidate, book)) { found_name = book; break; }
-        }
+        std::string found_name = ResolveBookAlias(book_candidate);
         if (found_name.empty()) continue;
 
         BibleRef ref;

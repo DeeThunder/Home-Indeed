@@ -12,11 +12,13 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     search_box = new QLineEdit();
     search_box->setPlaceholderText("Search song or artist...");
     QPushButton* search_btn = new QPushButton("Search");
+    library_btn = new QPushButton("Library");
     allow_web_checkbox = new QCheckBox("Allow Web Search");
     allow_web_checkbox->setChecked(true);
     
     search_layout->addWidget(search_box);
     search_layout->addWidget(allow_web_checkbox);
+    search_layout->addWidget(library_btn);
     search_layout->addWidget(search_btn);
     layout->addLayout(search_layout);
 
@@ -42,6 +44,7 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
 
     // Connections
     connect(search_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnSearchTriggered);
+    connect(library_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnLibraryClicked);
     connect(search_box, &QLineEdit::returnPressed, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(songs_list, &QListWidget::itemSelectionChanged, this, &HomeInLyricsTab::OnSongSelected);
     connect(push_live_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnPushLiveClicked);
@@ -55,9 +58,11 @@ void HomeInLyricsTab::OnSearchTriggered() {
     songs_list->clear();
     sections_list->clear();
     songs_list->addItem("Searching...");
+    const int request_id = ++search_request_id;
 
     lyrics_engine.Search(query.toStdString(), allow_web_checkbox->isChecked(), 
-        [this](const std::vector<SongLyric>& results) {
+        [this, request_id](const std::vector<SongLyric>& results) {
+            if (request_id != search_request_id) return;
             songs_list->clear();
             if (results.empty()) {
                 songs_list->addItem("No results found.");
@@ -66,15 +71,46 @@ void HomeInLyricsTab::OnSearchTriggered() {
             for (const auto& song : results) {
                 QString display = QString("%1 - %2").arg(QString::fromStdString(song.title), QString::fromStdString(song.artist));
                 QListWidgetItem* item = new QListWidgetItem(display, songs_list);
-                item->setData(Qt::UserRole, QString::fromStdString(song.content)); // Save full lyrics
+                item->setData(Qt::UserRole, song.id);
+                item->setData(Qt::UserRole + 1, QString::fromStdString(song.content));
             }
         });
+}
+
+void HomeInLyricsTab::OnLibraryClicked() {
+    songs_list->clear();
+    sections_list->clear();
+    songs_list->addItem("Loading library...");
+    const int request_id = ++search_request_id;
+
+    lyrics_engine.GetLocalLibrary([this, request_id](const std::vector<SongLyric>& results) {
+        if (request_id != search_request_id) return;
+        songs_list->clear();
+        if (results.empty()) {
+            songs_list->addItem("Library is empty.");
+            return;
+        }
+        for (const auto& song : results) {
+            QString display = QString("%1 - %2").arg(QString::fromStdString(song.title), QString::fromStdString(song.artist));
+            QListWidgetItem* item = new QListWidgetItem(display, songs_list);
+            item->setData(Qt::UserRole, song.id);
+            item->setData(Qt::UserRole + 1, QString::fromStdString(song.content));
+        }
+    });
 }
 
 void HomeInLyricsTab::OnSongSelected() {
     sections_list->clear();
     if (QListWidgetItem* item = songs_list->currentItem()) {
-        QString full_lyrics = item->data(Qt::UserRole).toString();
+        QString full_lyrics = item->data(Qt::UserRole + 1).toString();
+        if (full_lyrics.isEmpty()) {
+            SongLyric song;
+            if (lyrics_engine.GetDB().FindSongById(item->data(Qt::UserRole).toInt(), song)) {
+                full_lyrics = QString::fromStdString(song.content);
+                item->setData(Qt::UserRole + 1, full_lyrics);
+            }
+        }
+        if (full_lyrics.isEmpty()) return;
         QStringList lines = full_lyrics.split('\n', Qt::SkipEmptyParts);
         
         // Group by 2 or 4 lines (simplified here)

@@ -4,8 +4,10 @@
 #include "../audio/homein-audio.hpp"
 #include "../renderer/homein-renderer.hpp"
 #include "../stt/homein-stt.hpp"
+#include "../stt/homein-auto-stt.hpp"
 #include <QVBoxLayout>
 #include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 
 // Include your newly isolated tabs
@@ -15,11 +17,16 @@
 #include "../tabs/homein-queue-tab.hpp"
 #include "../tabs/homein-settings-tab.hpp"
 
-// =====================================================================
-// 🛠️ DEVELOPER TESTING SWITCH
-// Options: WHISPER_LOCAL | VOSK_LOCAL | DEEPGRAM_CLOUD
-// =====================================================================
-static constexpr STTEngineType ACTIVE_STT_ENGINE = STTEngineType::DEEPGRAM_CLOUD;
+static QString FindFirstExistingModel(const QStringList& candidates) {
+    for (const QString& candidate : candidates) {
+        char* module_path = obs_module_file(candidate.toUtf8().constData());
+        if (!module_path) continue;
+        QString path = QString::fromUtf8(module_path);
+        bfree(module_path);
+        if (QFileInfo::exists(path)) return path;
+    }
+    return {};
+}
 
 HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
     context = std::make_shared<SermonContext>();
@@ -83,8 +90,7 @@ void HomeInDock::StartTranscription() {
     GetAudioHandler()->Clear();
     transcript_queue->Clear();
 
-    QString key = settings_tab->GetDeepgramKey();
-    stt_provider = HomeInSTTManager::CreateEngine(ACTIVE_STT_ENGINE);
+    stt_provider = HomeInSTTManager::CreateEngine(STTEngineType::AUTO_LOCAL);
 
     // --- PREMIUM FEATURE: KEYWORD HARVESTING ---
     // We grab all niche vocabulary from the SQLite databases to bias the AI
@@ -107,26 +113,31 @@ void HomeInDock::StartTranscription() {
 
     transcript_tab->SetAIStatus("Loading AI...", "#ffaa00");
 
-    QtConcurrent::run([this, key]() {
+    const QString language = settings_tab->GetLanguageCode();
+    const QString performance = settings_tab->GetPerformanceMode();
+    ref_parser.SetLanguage(language.toStdString());
+
+    QtConcurrent::run([this, language, performance]() {
         bool init_success = false;
 
-        if (ACTIVE_STT_ENGINE == STTEngineType::DEEPGRAM_CLOUD) {
-            init_success = stt_provider->Initialize(key.toStdString());
-        } 
-        else if (ACTIVE_STT_ENGINE == STTEngineType::WHISPER_LOCAL) {
-            char* model_path = obs_module_file("models/ggml-base.en.bin");
-            if (model_path) {
-                init_success = stt_provider->Initialize(model_path);
-                bfree(model_path);
-            }
-        } 
-        else if (ACTIVE_STT_ENGINE == STTEngineType::VOSK_LOCAL) {
-            char* model_path = obs_module_file("models/vosk-model-small-en-us-0.15");
-            if (model_path) {
-                init_success = stt_provider->Initialize(model_path);
-                bfree(model_path);
-            }
-        }
+        QString preferred_model = FindFirstExistingModel({
+            "models/ggml-small.bin",
+            "models/ggml-base.bin",
+            "models/ggml-small.en.bin",
+            "models/ggml-base.en.bin"
+        });
+
+        QString fallback_model = FindFirstExistingModel({
+            "models/ggml-base.en.bin",
+            "models/ggml-base.bin"
+        });
+
+        AutoSTTConfig config;
+        config.model_path = preferred_model.toStdString();
+        config.fallback_model_path = fallback_model.toStdString();
+        config.language_code = language.toStdString();
+        config.performance_mode = performance.toStdString();
+        init_success = stt_provider->Initialize(AutoSTTOrchestrator::BuildConfig(config));
 
         QMetaObject::invokeMethod(this, [this, init_success]() {
             if (!init_success) {
@@ -154,7 +165,10 @@ void HomeInDock::StartTranscription() {
 void HomeInDock::StopTranscription() {
     is_running = false;
     transcript_tab->SetAIStatus("", "");
-    // Stop engine logic here...
+    if (stt_provider) {
+        stt_provider->Stop();
+        stt_provider.reset();
+    }
 }
 
 void HomeInDock::HandleNewTranscript(const std::string& text) {
@@ -167,6 +181,9 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
         const auto& best_match = verses.front();
         if (settings_tab->AutoSearch()) {
             bible_tab->AutoSearchVerse(QString::fromStdString(best_match.book), best_match.chapter, best_match.verse_start);
+            if (settings_tab->AutoPush()) {
+                bible_tab->PushFirstResultLive();
+            }
             if (settings_tab->AutoSwitchTabs()) {
                 tab_widget->setCurrentWidget(bible_tab);
             }

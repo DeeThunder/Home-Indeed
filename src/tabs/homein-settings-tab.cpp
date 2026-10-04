@@ -7,9 +7,23 @@ HomeInSettingsTab::HomeInSettingsTab(QWidget *parent) : QWidget(parent) {
 
     QGroupBox* ai_group = new QGroupBox("AI Engine");
     QVBoxLayout* ai_layout = new QVBoxLayout(ai_group);
+    language_combo = new QComboBox();
+    language_combo->addItem("Auto Detect", "auto");
+    language_combo->addItem("English", "en");
+    language_combo->addItem("Yoruba", "yo");
+    language_combo->addItem("Hausa", "ha");
+    language_combo->addItem("Igbo", "ig");
+
+    performance_combo = new QComboBox();
+    performance_combo->addItem("Balanced", "balanced");
+    performance_combo->addItem("Fast", "fast");
+    performance_combo->addItem("Accurate", "accurate");
+
     deepgram_key_edit = new QLineEdit();
-    deepgram_key_edit->setPlaceholderText("Deepgram API Key (Optional)");
+    deepgram_key_edit->setPlaceholderText("Optional cloud STT key for developer fallback");
     deepgram_key_edit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    ai_layout->addWidget(language_combo);
+    ai_layout->addWidget(performance_combo);
     ai_layout->addWidget(deepgram_key_edit);
     layout->addWidget(ai_group);
 
@@ -36,6 +50,14 @@ HomeInSettingsTab::HomeInSettingsTab(QWidget *parent) : QWidget(parent) {
 void HomeInSettingsTab::LoadSettings() {
     QSettings settings("HomeIndeed", "Plugin");
     deepgram_key_edit->setText(settings.value("deepgram_key", "").toString());
+    const QString language = settings.value("language_code", "auto").toString();
+    int lang_index = language_combo->findData(language);
+    language_combo->setCurrentIndex(lang_index >= 0 ? lang_index : 0);
+
+    const QString perf = settings.value("performance_mode", "balanced").toString();
+    int perf_index = performance_combo->findData(perf);
+    performance_combo->setCurrentIndex(perf_index >= 0 ? perf_index : 0);
+
     auto_search_checkbox->setChecked(settings.value("auto_search", true).toBool());
     auto_push_checkbox->setChecked(settings.value("auto_push", true).toBool());
     auto_switch_tabs_checkbox->setChecked(settings.value("auto_switch", true).toBool());
@@ -44,6 +66,8 @@ void HomeInSettingsTab::LoadSettings() {
 void HomeInSettingsTab::SaveSettings() {
     QSettings settings("HomeIndeed", "Plugin");
     settings.setValue("deepgram_key", deepgram_key_edit->text());
+    settings.setValue("language_code", language_combo->currentData().toString());
+    settings.setValue("performance_mode", performance_combo->currentData().toString());
     settings.setValue("auto_search", auto_search_checkbox->isChecked());
     settings.setValue("auto_push", auto_push_checkbox->isChecked());
     settings.setValue("auto_switch", auto_switch_tabs_checkbox->isChecked());
@@ -53,3 +77,6 @@ bool HomeInSettingsTab::AutoSearch() const { return auto_search_checkbox->isChec
 bool HomeInSettingsTab::AutoPush() const { return auto_push_checkbox->isChecked(); }
 bool HomeInSettingsTab::AutoSwitchTabs() const { return auto_switch_tabs_checkbox->isChecked(); }
 QString HomeInSettingsTab::GetDeepgramKey() const { return deepgram_key_edit->text(); }
+QString HomeInSettingsTab::GetLanguageCode() const { return language_combo->currentData().toString(); }
+QString HomeInSettingsTab::GetPerformanceMode() const { return performance_combo->currentData().toString(); }
+int HomeInSettingsTab::GetLinesPerPage() const { return 4; }

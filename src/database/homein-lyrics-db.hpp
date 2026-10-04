@@ -29,11 +29,12 @@ public:
     bool AddSong(const std::string& title, const std::string& artist,
                  const std::string& content, const std::string& source);
 
-    std::vector<SongLyric> Search(const std::string& query, int limit = 10);
+    std::vector<SongLyric> Search(const std::string& query, int limit = 50);
     std::vector<SongLyric> GetLibrary(int limit = 100);
 
     bool FindSong(const std::string& title, const std::string& artist,
                   SongLyric& out_song);
+    bool FindSongById(int id, SongLyric& out_song);
 
     void RebuildFTS();
     void ValidateDatabase();

@@ -1,5 +1,49 @@
 #include "homein-lyrics-db.hpp"
 #include <obs-module.h>
+#include <algorithm>
+#include <cctype>
+#include <functional>
+#include <sstream>
+
+static std::string NormalizeKeyPart(const std::string& text) {
+    std::string out;
+    for (unsigned char c : text) {
+        if (std::isalnum(c)) out.push_back((char)std::tolower(c));
+    }
+    return out;
+}
+
+static std::string BuildSongKey(const std::string& title, const std::string& artist) {
+    return NormalizeKeyPart(title) + "|" + NormalizeKeyPart(artist);
+}
+
+static std::string BuildContentHash(const std::string& content) {
+    std::hash<std::string> hasher;
+    std::ostringstream out;
+    out << std::hex << hasher(content.substr(0, std::min<size_t>(content.size(), 512)));
+    return out.str();
+}
+
+static std::string BuildFTSQuery(const std::string& query) {
+    std::vector<std::string> tokens;
+    std::string current;
+    for (unsigned char c : query) {
+        if (std::isalnum(c)) {
+            current.push_back((char)c);
+        } else if (!current.empty()) {
+            tokens.push_back(current + "*");
+            current.clear();
+        }
+    }
+    if (!current.empty()) tokens.push_back(current + "*");
+
+    std::string out;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i) out += " OR ";
+        out += tokens[i];
+    }
+    return out;
+}
 
 HomeInLyricsDB::HomeInLyricsDB() {}
 
@@ -36,7 +80,10 @@ void HomeInLyricsDB::EnsureSchema() {
         "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "  title TEXT NOT NULL, artist TEXT,"
         "  content TEXT NOT NULL, source TEXT,"
+        "  normalized_key TEXT, content_hash TEXT,"
         "  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_lyrics_normalized_key "
+        "  ON lyrics(normalized_key, content_hash);"
         "CREATE VIRTUAL TABLE IF NOT EXISTS lyrics_fts USING fts5("
         "  title, artist, content,"
         "  content='lyrics', content_rowid='id');"
@@ -59,6 +106,12 @@ void HomeInLyricsDB::EnsureSchema() {
     } else {
         blog(LOG_INFO, "HomeIndeed: Lyrics schema ready.");
     }
+
+    sqlite3_exec(db, "ALTER TABLE lyrics ADD COLUMN normalized_key TEXT;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "ALTER TABLE lyrics ADD COLUMN content_hash TEXT;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "UPDATE lyrics SET normalized_key = lower(replace(title || '|' || ifnull(artist,''), ' ', '')) WHERE normalized_key IS NULL;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "UPDATE lyrics SET content_hash = substr(content, 1, 64) WHERE content_hash IS NULL;", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "CREATE UNIQUE INDEX IF NOT EXISTS idx_lyrics_normalized_key ON lyrics(normalized_key, content_hash);", nullptr, nullptr, nullptr);
 }
 
 void HomeInLyricsDB::ValidateDatabase() {
@@ -101,8 +154,8 @@ bool HomeInLyricsDB::AddSong(const std::string& title, const std::string& artist
 
     // INSERT OR REPLACE triggers DELETE then INSERT, which keeps FTS in sync
     const char* sql =
-        "INSERT INTO lyrics (title, artist, content, source) "
-        "VALUES (?, ?, ?, ?)";
+        "INSERT OR IGNORE INTO lyrics (title, artist, content, source, normalized_key, content_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?)";
     sqlite3_stmt* stmt;
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
@@ -112,6 +165,10 @@ bool HomeInLyricsDB::AddSong(const std::string& title, const std::string& artist
     sqlite3_bind_text(stmt, 2, artist.c_str(),  -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 3, content.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_bind_text(stmt, 4, source.c_str(),  -1, SQLITE_TRANSIENT);
+    const std::string normalized_key = BuildSongKey(title, artist);
+    const std::string content_hash = BuildContentHash(content);
+    sqlite3_bind_text(stmt, 5, normalized_key.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 6, content_hash.c_str(), -1, SQLITE_TRANSIENT);
 
     int rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -147,6 +204,35 @@ bool HomeInLyricsDB::FindSong(const std::string& title, const std::string& artis
     return found;
 }
 
+bool HomeInLyricsDB::FindSongById(int id, SongLyric& out_song) {
+    if (!db) return false;
+
+    const char* sql =
+        "SELECT id, title, artist, content, source FROM lyrics "
+        "WHERE id = ? LIMIT 1";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+
+    sqlite3_bind_int(stmt, 1, id);
+
+    bool found = false;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        out_song.id      = sqlite3_column_int(stmt, 0);
+        out_song.title   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        const char* art  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        out_song.artist  = art ? art : "";
+        out_song.content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        const char* src  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        out_song.source  = src ? src : "";
+        found = true;
+    }
+
+    sqlite3_finalize(stmt);
+    return found;
+}
+
 std::vector<SongLyric> HomeInLyricsDB::Search(const std::string& query, int limit) {
     std::vector<SongLyric> results;
     if (!db) return results;
@@ -162,8 +248,11 @@ std::vector<SongLyric> HomeInLyricsDB::Search(const std::string& query, int limi
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, fts_sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        // IMPROVED SEARCH: Use prefix matching (query*) to find words more easily.
-        std::string fts_query = query + "*";
+        std::string fts_query = BuildFTSQuery(query);
+        if (fts_query.empty()) {
+            sqlite3_finalize(stmt);
+            return results;
+        }
         sqlite3_bind_text(stmt, 1, fts_query.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 2, limit);
 

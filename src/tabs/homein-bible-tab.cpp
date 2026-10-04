@@ -73,3 +73,9 @@ void HomeInBibleTab::AutoSearchVerse(const QString& book, int chapter, int verse
     search_box->setText(QString("%1 %2:%3").arg(book).arg(chapter).arg(verse));
     OnSearchTriggered();
 }
+
+void HomeInBibleTab::PushFirstResultLive() {
+    if (results_list->count() <= 0) return;
+    results_list->setCurrentRow(0);
+    OnPushLiveClicked();
+}

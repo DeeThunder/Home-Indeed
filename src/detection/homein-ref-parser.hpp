@@ -30,9 +30,11 @@ public:
 
     std::vector<BibleRef> Parse(const std::string& text);
     void SetContext(std::shared_ptr<SermonContext> ctx) { context = ctx; }
+    void SetLanguage(const std::string& language_code) { active_language = language_code; }
 
 private:
     std::regex standard_ref_regex;
     std::regex verse_only_regex;
     std::shared_ptr<SermonContext> context;
+    std::string active_language = "auto";
 };

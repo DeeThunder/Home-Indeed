@@ -24,6 +24,17 @@ bool HomeInWhisperEngine::Initialize(const std::string& model_path) {
     return true;
 }
 
+void HomeInWhisperEngine::SetPerformanceMode(const std::string& mode) {
+    const int hw = static_cast<int>(std::thread::hardware_concurrency());
+    if (mode == "fast") {
+        n_threads = std::max(1, std::min(2, hw - 1));
+    } else if (mode == "accurate") {
+        n_threads = std::max(1, std::min(8, hw - 1));
+    } else {
+        n_threads = std::max(1, std::min(4, hw - 1));
+    }
+}
+
 void HomeInWhisperEngine::Start(TranscriptCallback callback) {
     if (running.exchange(true)) return;
     on_transcript = callback;
@@ -43,8 +54,8 @@ void HomeInWhisperEngine::RunLoop() {
     whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.translate = false;
     wparams.print_timestamps = true;
-    wparams.n_threads = std::max(1, std::min(4, (int)std::thread::hardware_concurrency() - 1));
-    wparams.language = "en";
+    wparams.n_threads = n_threads;
+    wparams.language = language == "auto" ? nullptr : language.c_str();
     wparams.no_context = true;
     wparams.single_segment = true;
     wparams.suppress_blank = true;

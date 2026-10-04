@@ -26,11 +26,14 @@ private:
     QCheckBox* allow_web_checkbox;
     QListWidget* songs_list;
     QListWidget* sections_list;
+    QPushButton* library_btn;
     QPushButton* push_live_btn;
     QPushButton* add_queue_btn;
+    int search_request_id = 0;
 
 private slots:
     void OnSearchTriggered();
+    void OnLibraryClicked();
     void OnSongSelected();
     void OnPushLiveClicked();
     void OnQueueClicked();

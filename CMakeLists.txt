@@ -118,6 +118,7 @@ target_sources(
     src/plugin-main.cpp
     src/audio/homein-audio.cpp
     src/stt/homein-stt.cpp
+    src/stt/homein-auto-stt.cpp
     src/stt/homein-whisper.cpp
     src/stt/homein-vosk.cpp
     src/stt/homein-deepgram.cpp

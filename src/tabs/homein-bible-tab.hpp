@@ -16,6 +16,7 @@ public:
 
     // Allows the Main Dock's Detection Loop to auto-search a verse
     void AutoSearchVerse(const QString& book, int chapter, int verse);
+    void PushFirstResultLive();
 
 signals:
     // Shouts to the Main Dock to push text to the OBS Overlay

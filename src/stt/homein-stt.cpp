@@ -2,9 +2,12 @@
 #include "homein-whisper.hpp"
 #include "homein-vosk.hpp"
 #include "homein-deepgram.hpp"
+#include "homein-auto-stt.hpp"
 
 std::unique_ptr<ISTTProvider> HomeInSTTManager::CreateEngine(STTEngineType type) {
     switch (type) {
+        case STTEngineType::AUTO_LOCAL:
+            return std::make_unique<AutoSTTOrchestrator>();
         case STTEngineType::WHISPER_LOCAL:
             return std::make_unique<HomeInWhisperEngine>();
         case STTEngineType::VOSK_LOCAL:
