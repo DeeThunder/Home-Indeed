@@ -3,6 +3,8 @@
 #include <obs.h>
 #include <memory>
 #include <mutex>
+#include <cmath>
+
 
 std::unique_ptr<HomeInAudioHandler> g_audio_handler = nullptr;
 std::mutex g_handler_mutex;
@@ -136,6 +138,7 @@ void HomeInAudioHandler::ProcessAudio(struct obs_audio_data* audio) {
         mono_input.reserve(frames);
 
         float max_peak = 0.0f;
+        float sum_sq = 0.0f;
         for (size_t i = 0; i < frames; ++i) {
             float mono_sample = 0.0f;
             int active_channels = 0;
@@ -156,9 +159,13 @@ void HomeInAudioHandler::ProcessAudio(struct obs_audio_data* audio) {
             
             float abs_sample = std::abs(mono_sample);
             if (abs_sample > max_peak) max_peak = abs_sample;
+            sum_sq += mono_sample * mono_sample;
             
             mono_input.push_back(mono_sample);
         }
+
+        // Calculate Root-Mean-Square (RMS) Energy
+        float frame_rms = frames > 0 ? std::sqrt(sum_sq / (float)frames) : 0.0f;
 
         // Smooth the peak value (decaying peak)
         float prev_level = current_level.load();
@@ -168,8 +175,14 @@ void HomeInAudioHandler::ProcessAudio(struct obs_audio_data* audio) {
             current_level.store(prev_level * 0.8f + max_peak * 0.2f);
         }
 
-        // 2. High-Quality Resample
-        if (max_peak > VAD_THRESHOLD) {
+        // 2. Adaptive VAD Speech Detection
+        // Update background noise floor estimate during quiet periods
+        if (frame_rms < noise_floor * 2.0f || noise_floor <= 0.0001f) {
+            noise_floor = (noise_floor <= 0.0001f) ? frame_rms : (noise_floor * 0.98f + frame_rms * 0.02f);
+        }
+        float speech_threshold = std::max(VAD_MIN_SPEECH_RMS, noise_floor * 2.2f);
+
+        if (frame_rms >= speech_threshold) {
             silent_frames = 0;
             gate_open = true;
         } else {
@@ -183,6 +196,7 @@ void HomeInAudioHandler::ProcessAudio(struct obs_audio_data* audio) {
             resampler->Process(mono_input, pcm_buffer);
             should_notify = true;
         }
+
 
         // 3. Buffer Management
         // Cap buffer at 30 seconds to prevent memory leaks if STT hangs

@@ -17,8 +17,12 @@
 #include "../tabs/homein-queue-tab.hpp"
 #include "../tabs/homein-settings-tab.hpp"
 
+#include "homein-downloader.hpp"
+
 static QString FindFirstExistingModel(const QStringList& candidates) {
+    QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/HomeIndeed/";
     for (const QString& candidate : candidates) {
+        if (QFileInfo::exists(appData + candidate)) return appData + candidate;
         char* module_path = obs_module_file(candidate.toUtf8().constData());
         if (!module_path) continue;
         QString path = QString::fromUtf8(module_path);
@@ -27,6 +31,7 @@ static QString FindFirstExistingModel(const QStringList& candidates) {
     }
     return {};
 }
+
 
 HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
     context = std::make_shared<SermonContext>();
@@ -117,20 +122,43 @@ void HomeInDock::StartTranscription() {
     const QString performance = settings_tab->GetPerformanceMode();
     ref_parser.SetLanguage(language.toStdString());
 
-    QtConcurrent::run([this, language, performance]() {
+    QString preferred_model = FindFirstExistingModel({
+        "models/ggml-small.bin",
+        "models/ggml-base.bin",
+        "models/ggml-small.en.bin",
+        "models/ggml-base.en.bin"
+    });
+
+    QString fallback_model = FindFirstExistingModel({
+        "models/ggml-base.en.bin",
+        "models/ggml-base.bin"
+    });
+
+    if (preferred_model.isEmpty() && fallback_model.isEmpty()) {
+        auto ans = QMessageBox::question(
+            this, "AI Speech Model Required",
+            "No offline Whisper speech model was found on your system.\n\n"
+            "Would you like to download the recommended Whisper model (~140 MB) now?",
+            QMessageBox::Yes | QMessageBox::No
+        );
+
+        if (ans == QMessageBox::Yes) {
+            QString target_file = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/HomeIndeed/models/ggml-base.bin";
+            HomeInModelDownloader downloader(target_file, QUrl("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin"), this);
+            if (downloader.exec() == QDialog::Accepted && downloader.IsDownloaded()) {
+                preferred_model = target_file;
+            } else {
+                StopTranscription();
+                return;
+            }
+        } else {
+            StopTranscription();
+            return;
+        }
+    }
+
+    QtConcurrent::run([this, preferred_model, fallback_model, language, performance]() {
         bool init_success = false;
-
-        QString preferred_model = FindFirstExistingModel({
-            "models/ggml-small.bin",
-            "models/ggml-base.bin",
-            "models/ggml-small.en.bin",
-            "models/ggml-base.en.bin"
-        });
-
-        QString fallback_model = FindFirstExistingModel({
-            "models/ggml-base.en.bin",
-            "models/ggml-base.bin"
-        });
 
         AutoSTTConfig config;
         config.model_path = preferred_model.toStdString();
@@ -140,6 +168,7 @@ void HomeInDock::StartTranscription() {
         init_success = stt_provider->Initialize(AutoSTTOrchestrator::BuildConfig(config));
 
         QMetaObject::invokeMethod(this, [this, init_success]() {
+
             if (!init_success) {
                 transcript_tab->SetAIStatus("", "");
                 QMessageBox::critical(this, "Speech Engine Error", "Failed to start AI Engine.");

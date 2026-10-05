@@ -123,6 +123,7 @@ target_sources(
     src/stt/homein-vosk.cpp
     src/stt/homein-deepgram.cpp
     src/dock/homein-dock.cpp
+    src/dock/homein-downloader.cpp
     src/tabs/homein-transcript-tab.cpp
     src/tabs/homein-bible-tab.cpp
     src/tabs/homein-lyrics-tab.cpp

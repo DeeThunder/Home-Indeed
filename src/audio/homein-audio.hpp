@@ -50,8 +50,10 @@ private:
     mutable std::mutex audio_mtx;
 
     static constexpr uint32_t TARGET_SAMPLE_RATE = 16000;
-    static constexpr float VAD_THRESHOLD = 0.001f;
-    static constexpr uint32_t VAD_SILENCE_LIMIT = 50; // ~1 second of silence before gating
+    static constexpr float VAD_MIN_SPEECH_RMS = 0.012f;
+    static constexpr uint32_t VAD_SILENCE_LIMIT = 30; // ~0.7s hangover
+    float noise_floor = 0.003f;
+
 
     obs_source_t* current_latch_source = nullptr;
     bool using_filter_path = false;
