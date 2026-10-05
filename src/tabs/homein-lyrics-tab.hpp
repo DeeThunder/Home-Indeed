@@ -15,6 +15,9 @@ public:
     // Requires a reference to the Lyrics Engine (which holds the scraper & DB)
     explicit HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent = nullptr);
 
+    void DisplayLiveMatch(const SongLyric& song, const std::string& spoken_text = "");
+    void PushFirstResultLive();
+
 signals:
     // Same signals as the Bible Tab! The Main Dock handles them the exact same way.
     void RequestPushToOverlay(const QString& text);

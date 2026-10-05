@@ -188,8 +188,23 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
                 tab_widget->setCurrentWidget(bible_tab);
             }
         }
+    } else if (settings_tab->AutoSearch() && text.size() >= 10) {
+        // 3. Send text to Lyrics Engine if no verse was detected
+        lyrics_engine.Search(text, false, [this, text](const std::vector<SongLyric>& songs) {
+            if (songs.empty()) return;
+            QMetaObject::invokeMethod(this, [this, songs, text]() {
+                lyrics_tab->DisplayLiveMatch(songs.front(), text);
+                if (settings_tab->AutoPush()) {
+                    lyrics_tab->PushFirstResultLive();
+                }
+                if (settings_tab->AutoSwitchTabs()) {
+                    tab_widget->setCurrentWidget(lyrics_tab);
+                }
+            }, Qt::QueuedConnection);
+        });
     }
 }
+
 
 void HomeInDock::PushToOverlay(const QString& text) {
     if (HomeInRenderer* renderer = GetActiveRenderer()) {

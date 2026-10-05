@@ -32,26 +32,67 @@ static std::string BuildContentHash(const std::string& content) {
     return out.str();
 }
 
-static std::string BuildFTSQuery(const std::string& query) {
+#include <unordered_set>
+
+static const std::unordered_set<std::string> STOPWORDS = {
+    "a", "an", "the", "and", "or", "but", "if", "because", "as", "what",
+    "which", "this", "that", "these", "those", "then", "just", "so", "than",
+    "such", "both", "through", "about", "for", "is", "of", "while", "during",
+    "to", "from", "in", "out", "on", "off", "over", "under", "again", "further",
+    "then", "once", "here", "there", "when", "where", "why", "how", "all", "any",
+    "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor",
+    "not", "only", "own", "same", "so", "than", "too", "very", "can", "will",
+    "just", "don", "should", "now", "i", "me", "my", "myself", "we", "our",
+    "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he",
+    "him", "his", "himself", "she", "her", "hers", "herself", "it", "its",
+    "itself", "they", "them", "their", "theirs", "themselves", "am", "is", "are",
+    "was", "were", "be", "been", "being", "have", "has", "had", "having", "do",
+    "does", "did", "doing",
+    "ti", "ni", "si", "da", "na", "ba", "ya", "ka", "mu", "yi", "za", "ta", "ga"
+};
+
+static std::vector<std::string> ExtractTokens(const std::string& query) {
     std::vector<std::string> tokens;
     std::string current;
     for (unsigned char c : query) {
         if (std::isalnum(c)) {
-            current.push_back((char)c);
+            current.push_back((char)std::tolower(c));
         } else if (!current.empty()) {
-            tokens.push_back(current + "*");
+            tokens.push_back(current);
             current.clear();
         }
     }
-    if (!current.empty()) tokens.push_back(current + "*");
+    if (!current.empty()) tokens.push_back(current);
+    return tokens;
+}
 
+static std::string BuildCleanPhrase(const std::vector<std::string>& tokens) {
     std::string out;
     for (size_t i = 0; i < tokens.size(); ++i) {
-        if (i) out += " OR ";
+        if (i) out += " ";
         out += tokens[i];
     }
     return out;
 }
+
+static std::string BuildAndFTSQuery(const std::vector<std::string>& tokens) {
+    std::string out;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i) out += " AND ";
+        out += tokens[i] + "*";
+    }
+    return out;
+}
+
+static std::string BuildOrFTSQuery(const std::vector<std::string>& tokens) {
+    std::string out;
+    for (size_t i = 0; i < tokens.size(); ++i) {
+        if (i) out += " OR ";
+        out += tokens[i] + "*";
+    }
+    return out;
+}
+
 
 HomeInLyricsDB::HomeInLyricsDB() {}
 
@@ -245,44 +286,81 @@ std::vector<SongLyric> HomeInLyricsDB::Search(const std::string& query, int limi
     std::vector<SongLyric> results;
     if (!db) return results;
 
-    // Primary: FTS5 MATCH (fast, relevance-ranked)
-    const char* fts_sql =
-        "SELECT l.id, l.title, l.artist, l.content, l.source "
-        "FROM lyrics_fts "
-        "JOIN lyrics l ON lyrics_fts.rowid = l.id "
-        "WHERE lyrics_fts MATCH ? "
-        "ORDER BY rank "
-        "LIMIT ?";
+    auto all_tokens = ExtractTokens(query);
+    if (all_tokens.empty()) return results;
 
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(db, fts_sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        std::string fts_query = BuildFTSQuery(query);
-        if (fts_query.empty()) {
+    std::vector<std::string> meaningful_tokens;
+    for (const auto& t : all_tokens) {
+        if (STOPWORDS.find(t) == STOPWORDS.end()) {
+            meaningful_tokens.push_back(t);
+        }
+    }
+    const auto& tokens_to_use = meaningful_tokens.empty() ? all_tokens : meaningful_tokens;
+
+    std::unordered_set<int> seen_ids;
+    auto execute_fts = [&](const std::string& fts_match_expr, bool use_bm25 = false) {
+        const char* fts_sql = use_bm25
+            ? "SELECT l.id, l.title, l.artist, l.content, l.source "
+              "FROM lyrics_fts "
+              "JOIN lyrics l ON lyrics_fts.rowid = l.id "
+              "WHERE lyrics_fts MATCH ? "
+              "ORDER BY bm25(lyrics_fts) "
+              "LIMIT ?"
+            : "SELECT l.id, l.title, l.artist, l.content, l.source "
+              "FROM lyrics_fts "
+              "JOIN lyrics l ON lyrics_fts.rowid = l.id "
+              "WHERE lyrics_fts MATCH ? "
+              "LIMIT ?";
+
+        sqlite3_stmt* stmt;
+        if (sqlite3_prepare_v2(db, fts_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_text(stmt, 1, fts_match_expr.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt, 2, limit - (int)results.size());
+
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                int id = sqlite3_column_int(stmt, 0);
+                if (seen_ids.insert(id).second) {
+                    SongLyric s;
+                    s.id      = id;
+                    s.title   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                    const char* art = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+                    s.artist  = art ? art : "";
+                    s.content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+                    const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+                    s.source  = src ? src : "";
+                    results.push_back(s);
+                }
+            }
             sqlite3_finalize(stmt);
-            return results;
         }
-        sqlite3_bind_text(stmt, 1, fts_query.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int(stmt, 2, limit);
+    };
 
-        while (sqlite3_step(stmt) == SQLITE_ROW) {
-            SongLyric s;
-            s.id      = sqlite3_column_int(stmt, 0);
-            s.title   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            s.artist  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-            s.content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-            s.source  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-            results.push_back(s);
-        }
-        sqlite3_finalize(stmt);
+    // Tier 1: Exact phrase search for multi-word phrases (highest precision)
+    if (all_tokens.size() > 1) {
+        std::string phrase = "\"" + BuildCleanPhrase(all_tokens) + "\"";
+        execute_fts(phrase);
     }
 
-    // Fallback: LIKE search if FTS found nothing (handles partial word matches)
+    // Tier 2: Conjunctive AND search for songs containing all meaningful tokens
+    if ((int)results.size() < limit && !tokens_to_use.empty()) {
+        std::string and_query = BuildAndFTSQuery(tokens_to_use);
+        execute_fts(and_query);
+    }
+
+    // Tier 3: Ranked BM25 OR search for partial/fuzzy recall
+    if ((int)results.size() < limit && !tokens_to_use.empty()) {
+        std::string or_query = BuildOrFTSQuery(tokens_to_use);
+        execute_fts(or_query, true);
+    }
+
+    // Tier 4: Fallback LIKE search if FTS found nothing (punctuation, special chars)
     if (results.empty()) {
         const char* like_sql =
             "SELECT id, title, artist, content, source FROM lyrics "
             "WHERE title LIKE ? OR content LIKE ? OR artist LIKE ? "
             "LIMIT ?";
 
+        sqlite3_stmt* stmt;
         if (sqlite3_prepare_v2(db, like_sql, -1, &stmt, nullptr) == SQLITE_OK) {
             std::string pat = "%" + query + "%";
             sqlite3_bind_text(stmt, 1, pat.c_str(), -1, SQLITE_TRANSIENT);
@@ -291,13 +369,18 @@ std::vector<SongLyric> HomeInLyricsDB::Search(const std::string& query, int limi
             sqlite3_bind_int(stmt, 4, limit);
 
             while (sqlite3_step(stmt) == SQLITE_ROW) {
-                SongLyric s;
-                s.id      = sqlite3_column_int(stmt, 0);
-                s.title   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-                s.artist  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-                s.content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
-                s.source  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-                results.push_back(s);
+                int id = sqlite3_column_int(stmt, 0);
+                if (seen_ids.insert(id).second) {
+                    SongLyric s;
+                    s.id      = id;
+                    s.title   = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                    const char* art = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+                    s.artist  = art ? art : "";
+                    s.content = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+                    const char* src = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+                    s.source  = src ? src : "";
+                    results.push_back(s);
+                }
             }
             sqlite3_finalize(stmt);
         }

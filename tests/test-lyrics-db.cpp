@@ -29,3 +29,16 @@ TEST(LyricsDBTest, LibraryReturnsSavedSongs) {
     ASSERT_TRUE(db.FindSongById(library.front().id, loaded));
     EXPECT_EQ(loaded.content, "Way maker miracle worker");
 }
+
+TEST(LyricsDBTest, PhraseAndStopwordsDisambiguation) {
+    HomeInLyricsDB db;
+    ASSERT_TRUE(db.Open(":memory:"));
+    ASSERT_TRUE(db.AddSong("Song A", "Artist A", "The Lord is in this place and he is good", "test"));
+    ASSERT_TRUE(db.AddSong("Song B", "Artist B", "Amazing grace how sweet the sound", "test"));
+
+    // Searching with common stopwords should prioritize the exact phrase/keywords in Song B
+    auto results = db.Search("how sweet the sound");
+    ASSERT_FALSE(results.empty());
+    EXPECT_EQ(results.front().title, "Song B");
+}
+
