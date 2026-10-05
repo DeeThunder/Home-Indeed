@@ -197,13 +197,68 @@ void HomeInLyricsTab::DisplayLiveMatch(const SongLyric& song, const std::string&
 
 void HomeInLyricsTab::PushFirstResultLive() {
     if (QListWidgetItem* item = sections_list->currentItem()) {
+        is_live = true;
         emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
     }
 }
 
 void HomeInLyricsTab::OnPushLiveClicked() {
     if (QListWidgetItem* item = sections_list->currentItem()) {
+        is_live = true;
         emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+    }
+}
+
+void HomeInLyricsTab::AdvanceSlideOnSpeech(const std::string& spoken_text) {
+    if (sections_list->count() <= 1 || spoken_text.empty()) return;
+
+    QString q_spoken = QString::fromStdString(spoken_text).toLower();
+    QStringList words = q_spoken.split(QRegularExpression("\\W+"), Qt::SkipEmptyParts);
+    if (words.size() < 2) return;
+
+    int current_idx = sections_list->currentRow();
+    if (current_idx < 0) current_idx = 0;
+
+    // Check next stanza first for natural forward song progression
+    int next_idx = current_idx + 1;
+    if (next_idx < sections_list->count()) {
+        QString next_stanza = sections_list->item(next_idx)->text().toLower();
+        int next_matches = 0;
+        for (const QString& w : words) {
+            if (w.length() >= 3 && next_stanza.contains(w)) {
+                next_matches++;
+            }
+        }
+        if (next_matches >= 2) {
+            sections_list->setCurrentRow(next_idx);
+            is_live = true;
+            emit RequestPushToOverlay(sections_list->item(next_idx)->data(Qt::UserRole).toString());
+            return;
+        }
+    }
+
+    // Check all slides if user jumped (e.g. repeated chorus or bridge)
+    int best_idx = -1;
+    int best_score = 0;
+    for (int i = 0; i < sections_list->count(); ++i) {
+        if (i == current_idx) continue;
+        QString stanza = sections_list->item(i)->text().toLower();
+        int score = 0;
+        for (const QString& w : words) {
+            if (w.length() >= 3 && stanza.contains(w)) {
+                score++;
+            }
+        }
+        if (score > best_score && score >= 3) {
+            best_score = score;
+            best_idx = i;
+        }
+    }
+
+    if (best_idx != -1 && best_idx != current_idx) {
+        sections_list->setCurrentRow(best_idx);
+        is_live = true;
+        emit RequestPushToOverlay(sections_list->item(best_idx)->data(Qt::UserRole).toString());
     }
 }
 

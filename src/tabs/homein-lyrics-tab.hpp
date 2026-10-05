@@ -17,6 +17,9 @@ public:
 
     void DisplayLiveMatch(const SongLyric& song, const std::string& spoken_text = "");
     void PushFirstResultLive();
+    void AdvanceSlideOnSpeech(const std::string& spoken_text);
+    bool IsLive() const { return is_live; }
+    void SetLive(bool live) { is_live = live; }
 
 signals:
     // Same signals as the Bible Tab! The Main Dock handles them the exact same way.
@@ -33,6 +36,7 @@ private:
     QPushButton* push_live_btn;
     QPushButton* add_queue_btn;
     int search_request_id = 0;
+    bool is_live = false;
 
 private slots:
     void OnSearchTriggered();

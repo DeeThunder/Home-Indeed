@@ -5,6 +5,8 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
 #include "../database/homein-db.hpp"
 
 class HomeInBibleTab : public QWidget {
@@ -30,7 +32,9 @@ private:
     QListWidget* results_list;
     QPushButton* push_live_btn;
     QPushButton* add_queue_btn;
-    QComboBox* translation_combo;
+    QComboBox* primary_trans_combo;
+    QComboBox* secondary_trans_combo;
+    void PopulateTranslations();
 
 private slots:
     void OnSearchTriggered();

@@ -204,6 +204,11 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
     // 1. Give text to the UI
     transcript_tab->AppendTranscriptText(QString::fromStdString(text));
 
+    // 1.5 If a song is currently live, check for live slide auto-advancement
+    if (lyrics_tab && lyrics_tab->IsLive()) {
+        lyrics_tab->AdvanceSlideOnSpeech(text);
+    }
+
     // 2. Send text to the Bible Parser
     auto verses = ref_parser.Parse(text);
     if (!verses.empty()) {
