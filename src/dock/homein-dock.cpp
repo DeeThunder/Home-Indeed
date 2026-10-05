@@ -86,6 +86,16 @@ void HomeInDock::SetupUI() {
     // Routing Bible and Lyrics "Add to Queue" clicks straight to the Queue tab
     connect(bible_tab, &HomeInBibleTab::RequestAddToQueue, queue_tab, &HomeInQueueTab::AddItemToQueue);
     connect(lyrics_tab, &HomeInLyricsTab::RequestAddToQueue, queue_tab, &HomeInQueueTab::AddItemToQueue);
+
+    // Routing Real-time Overlay Styling Updates to Renderer
+    connect(settings_tab, &HomeInSettingsTab::OverlaySettingsChanged, this, [this](const OverlaySettings& s) {
+        if (HomeInRenderer* renderer = GetActiveRenderer()) {
+            renderer->UpdateSettings(s);
+        }
+    });
+    if (HomeInRenderer* renderer = GetActiveRenderer()) {
+        renderer->UpdateSettings(settings_tab->GetOverlaySettings());
+    }
 }
 
 void HomeInDock::StartTranscription() {

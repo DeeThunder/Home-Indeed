@@ -170,14 +170,33 @@ void HomeInRenderer::PrepareTexture() {
             if (colorStr != "black") colorStr = "white"; 
             
             QColor textColor = (colorStr == "black") ? Qt::black : Qt::white;
+
+            // Draw text shadow / outline if enabled
+            if (draw_settings.text_shadow) {
+                QColor shadowColor = (colorStr == "black") ? QColor(255, 255, 255, a8) : QColor(0, 0, 0, (int)(a8 * 0.85f));
+                painter.setPen(shadowColor);
+                painter.drawText(r.translated(2, 2), flags, text);
+                painter.drawText(r.translated(-1, -1), flags, text);
+            }
+
             painter.setPen(QColor(textColor.red(), textColor.green(), textColor.blue(), a8));
             painter.drawText(r, flags, text);
         };
 
         // Layout Constants
-        int margin = 80;
+        int margin = draw_settings.margin > 0 ? draw_settings.margin : 80;
         int area_h = (int)(height * 0.40f); 
-        QRect contentRect(margin, (int)height - area_h - 40, (int)width - margin * 2, area_h);
+        int bottom_offset = draw_settings.lower_third_offset >= 0 ? draw_settings.lower_third_offset : 40;
+        QRect contentRect(margin, (int)height - area_h - bottom_offset, (int)width - margin * 2, area_h);
+
+        // Draw background bounding box if enabled
+        if (draw_settings.show_background && draw_settings.bg_opacity > 0) {
+            int bg_a = (int)((draw_settings.bg_opacity / 255.0f) * alpha * 255.0f);
+            painter.setBrush(QBrush(QColor(15, 15, 18, bg_a)));
+            painter.setPen(Qt::NoPen);
+            QRect bgRect = contentRect.adjusted(-24, -12, 24, 12);
+            painter.drawRoundedRect(bgRect, 16.0, 16.0);
+        }
         
         if (isLyrics) {
             int calculatedSize = (int)(draw_settings.base_font_size * 1.3f);
