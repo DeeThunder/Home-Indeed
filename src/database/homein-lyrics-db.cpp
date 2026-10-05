@@ -1,6 +1,14 @@
 #include "homein-lyrics-db.hpp"
+#ifdef HOMEIN_TESTING
+#define LOG_INFO 0
+#define LOG_WARNING 1
+#define LOG_ERROR 2
+#define blog(level, ...) do {} while (0)
+#else
 #include <obs-module.h>
+#endif
 #include <algorithm>
+
 #include <cctype>
 #include <functional>
 #include <sstream>
