@@ -41,8 +41,26 @@ HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
     // Load Databases
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/HomeIndeed";
     QDir().mkpath(dataPath);
-    bible_db.Open((dataPath + "/homein-bible.db").toStdString());
-    lyrics_engine.Initialize((dataPath + "/homein-lyrics.db").toStdString());
+
+    QString biblePath = dataPath + "/homein-bible.db";
+    if (!QFileInfo::exists(biblePath)) {
+        char* mod_file = obs_module_file("homein-bible.db");
+        if (mod_file) {
+            QFile::copy(QString::fromUtf8(mod_file), biblePath);
+            bfree(mod_file);
+        }
+    }
+    bible_db.Open(biblePath.toStdString());
+
+    QString lyricsPath = dataPath + "/homein-lyrics.db";
+    if (!QFileInfo::exists(lyricsPath)) {
+        char* mod_file = obs_module_file("homein-lyrics.db");
+        if (mod_file) {
+            QFile::copy(QString::fromUtf8(mod_file), lyricsPath);
+            bfree(mod_file);
+        }
+    }
+    lyrics_engine.Initialize(lyricsPath.toStdString());
 
     SetupUI();
 }
