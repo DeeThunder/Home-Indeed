@@ -3,9 +3,20 @@
 #include <QPushButton>
 #include <QLabel>
 #include <QFormLayout>
+#include <QScrollArea>
 
 HomeInSettingsTab::HomeInSettingsTab(QWidget *parent) : QWidget(parent) {
-    QVBoxLayout* layout = new QVBoxLayout(this);
+    QVBoxLayout* outer_layout = new QVBoxLayout(this);
+    outer_layout->setContentsMargins(0, 0, 0, 0);
+
+    QScrollArea* scroll_area = new QScrollArea(this);
+    scroll_area->setWidgetResizable(true);
+    scroll_area->setFrameShape(QFrame::NoFrame);
+
+    QWidget* scroll_content = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(scroll_content);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(6);
 
     // 1. AI Engine Group
     QGroupBox* ai_group = new QGroupBox("AI Engine");
@@ -94,6 +105,9 @@ HomeInSettingsTab::HomeInSettingsTab(QWidget *parent) : QWidget(parent) {
     QPushButton* save_btn = new QPushButton("Save Settings");
     layout->addWidget(save_btn);
     layout->addStretch();
+
+    scroll_area->setWidget(scroll_content);
+    outer_layout->addWidget(scroll_area);
 
     // Wire styling controls for real-time live preview
     connect(font_family_combo, &QFontComboBox::currentFontChanged, this, &HomeInSettingsTab::OnStylingChanged);

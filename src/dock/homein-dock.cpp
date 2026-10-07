@@ -71,7 +71,14 @@ HomeInDock::~HomeInDock() {
 
 void HomeInDock::SetupUI() {
     QVBoxLayout* main_layout = new QVBoxLayout(this);
+    main_layout->setContentsMargins(2, 2, 2, 2);
+    main_layout->setSpacing(2);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    setMinimumSize(280, 220);
+
     tab_widget = new QTabWidget(this);
+    tab_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    tab_widget->setDocumentMode(true);
 
     // 1. Instantiate the Tabs
     transcript_tab = new HomeInTranscriptTab(this);
@@ -250,8 +257,35 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
                 tab_widget->setCurrentWidget(bible_tab);
             }
         }
+    } else if (settings_tab->AutoSearch() && text.size() >= 20) {
+        // --- PEWBEAM-STYLE SCRIPTURE QUOTE DETECTION ---
+        // If no explicit chapter:verse was spoken, search for implied scripture quotes
+        auto quote_matches = bible_db.FuzzySearch(text, 1);
+        if (!quote_matches.empty()) {
+            const auto& qm = quote_matches.front();
+            bible_tab->AutoSearchVerse(QString::fromStdString(qm.book_name), qm.chapter, qm.verse);
+            if (settings_tab->AutoPush()) {
+                bible_tab->PushFirstResultLive();
+            }
+            if (settings_tab->AutoSwitchTabs()) {
+                tab_widget->setCurrentWidget(bible_tab);
+            }
+        } else if (text.size() >= 10) {
+            // 3. Send text to Lyrics Engine if neither reference nor scripture quote was detected
+            lyrics_engine.Search(text, false, [this, text](const std::vector<SongLyric>& songs) {
+                if (songs.empty()) return;
+                QMetaObject::invokeMethod(this, [this, songs, text]() {
+                    lyrics_tab->DisplayLiveMatch(songs.front(), text);
+                    if (settings_tab->AutoPush()) {
+                        lyrics_tab->PushFirstResultLive();
+                    }
+                    if (settings_tab->AutoSwitchTabs()) {
+                        tab_widget->setCurrentWidget(lyrics_tab);
+                    }
+                }, Qt::QueuedConnection);
+            });
+        }
     } else if (settings_tab->AutoSearch() && text.size() >= 10) {
-        // 3. Send text to Lyrics Engine if no verse was detected
         lyrics_engine.Search(text, false, [this, text](const std::vector<SongLyric>& songs) {
             if (songs.empty()) return;
             QMetaObject::invokeMethod(this, [this, songs, text]() {

@@ -1,11 +1,16 @@
 #include "homein-lyrics-tab.hpp"
 #include <QMessageBox>
 #include <QSplitter>
+#include <QDialog>
+#include <QFormLayout>
+#include <QTextEdit>
 
 HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent) 
     : QWidget(parent), lyrics_engine(engine) {
     
     QVBoxLayout* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     // Search Bar
     QHBoxLayout* search_layout = new QHBoxLayout();
@@ -13,24 +18,31 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     search_box->setPlaceholderText("Search song or artist...");
     QPushButton* search_btn = new QPushButton("Search");
     library_btn = new QPushButton("Library");
-    allow_web_checkbox = new QCheckBox("Allow Web Search");
+    add_song_btn = new QPushButton("+ Add Song");
+    allow_web_checkbox = new QCheckBox("Web");
+    allow_web_checkbox->setToolTip("Allow searching online web lyrics (LRCLIB)");
     allow_web_checkbox->setChecked(true);
     
-    search_layout->addWidget(search_box);
-    search_layout->addWidget(allow_web_checkbox);
-    search_layout->addWidget(library_btn);
+    search_layout->addWidget(search_box, 1);
     search_layout->addWidget(search_btn);
+    search_layout->addWidget(library_btn);
+    search_layout->addWidget(add_song_btn);
+    search_layout->addWidget(allow_web_checkbox);
     layout->addLayout(search_layout);
 
     // Splitter for Songs and Sections
     QSplitter* splitter = new QSplitter(Qt::Vertical);
     
     songs_list = new QListWidget();
+    songs_list->setMinimumHeight(60);
     sections_list = new QListWidget();
+    sections_list->setMinimumHeight(60);
     sections_list->setWordWrap(true);
     
     splitter->addWidget(songs_list);
     splitter->addWidget(sections_list);
+    splitter->setChildrenCollapsible(false);
+    splitter->setSizes({120, 180});
     layout->addWidget(splitter);
 
     // Action Buttons
@@ -45,10 +57,15 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     // Connections
     connect(search_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(library_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnLibraryClicked);
+    connect(add_song_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnAddSongClicked);
     connect(search_box, &QLineEdit::returnPressed, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(songs_list, &QListWidget::itemSelectionChanged, this, &HomeInLyricsTab::OnSongSelected);
     connect(push_live_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnPushLiveClicked);
     connect(add_queue_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnQueueClicked);
+    connect(sections_list, &QListWidget::itemDoubleClicked, this, &HomeInLyricsTab::OnPushLiveClicked);
+
+    // Automatically populate library so bundled songs appear on launch
+    OnLibraryClicked();
 }
 
 void HomeInLyricsTab::OnSearchTriggered() {
@@ -269,6 +286,116 @@ void HomeInLyricsTab::OnQueueClicked() {
         display.remove("\x01");
         display = display.left(30).replace('\n', ' ') + "...";
         emit RequestAddToQueue(display, payload, true); 
+    }
+}
+
+void HomeInLyricsTab::OnAddSongClicked() {
+    QDialog dlg(this);
+    dlg.setWindowTitle("Add / Import Song to Library");
+    dlg.setMinimumSize(440, 400);
+
+    QVBoxLayout* dlg_layout = new QVBoxLayout(&dlg);
+    dlg_layout->setContentsMargins(12, 12, 12, 12);
+    dlg_layout->setSpacing(8);
+
+    QFormLayout* form = new QFormLayout();
+    QLineEdit* title_edit = new QLineEdit(&dlg);
+    title_edit->setPlaceholderText("e.g. Goodness of God");
+    QLineEdit* artist_edit = new QLineEdit(&dlg);
+    artist_edit->setPlaceholderText("e.g. Bethel Music / Jenn Johnson");
+    form->addRow("Song Title:", title_edit);
+    form->addRow("Artist / Author:", artist_edit);
+    dlg_layout->addLayout(form);
+
+    // Online Search bar inside dialog
+    QHBoxLayout* fetch_layout = new QHBoxLayout();
+    QPushButton* fetch_btn = new QPushButton(" Search Online (LRCLIB)", &dlg);
+    QLabel* fetch_status = new QLabel("", &dlg);
+    fetch_status->setStyleSheet("color: #888; font-size: 11px;");
+    fetch_layout->addWidget(fetch_btn);
+    fetch_layout->addWidget(fetch_status, 1);
+    dlg_layout->addLayout(fetch_layout);
+
+    // Lyrics content text area
+    QLabel* content_lbl = new QLabel("Lyrics (paste, type, or auto-fetch):", &dlg);
+    QTextEdit* content_edit = new QTextEdit(&dlg);
+    content_edit->setPlaceholderText("Paste copied lyrics here, or click 'Search Online' above to automatically populate...");
+    dlg_layout->addWidget(content_lbl);
+    dlg_layout->addWidget(content_edit, 1);
+
+    // Dialog Buttons
+    QHBoxLayout* btn_layout = new QHBoxLayout();
+    QPushButton* save_btn = new QPushButton("Save to Library", &dlg);
+    QPushButton* cancel_btn = new QPushButton("Cancel", &dlg);
+    btn_layout->addStretch();
+    btn_layout->addWidget(save_btn);
+    btn_layout->addWidget(cancel_btn);
+    dlg_layout->addLayout(btn_layout);
+
+    // Fetch from Web logic
+    connect(fetch_btn, &QPushButton::clicked, [&]() {
+        QString q = title_edit->text().trimmed();
+        if (q.isEmpty() && !artist_edit->text().trimmed().isEmpty()) {
+            q = artist_edit->text().trimmed();
+        } else if (!artist_edit->text().trimmed().isEmpty()) {
+            q += " " + artist_edit->text().trimmed();
+        }
+        if (q.isEmpty()) {
+            fetch_status->setText("Enter a title or artist first.");
+            return;
+        }
+
+        fetch_status->setText("Searching online...");
+        fetch_btn->setEnabled(false);
+
+        lyrics_engine.Search(q.toStdString(), true, [&dlg, fetch_btn, fetch_status, title_edit, artist_edit, content_edit](const std::vector<SongLyric>& results) {
+            QMetaObject::invokeMethod(&dlg, [&dlg, fetch_btn, fetch_status, title_edit, artist_edit, content_edit, results]() {
+                fetch_btn->setEnabled(true);
+                if (results.empty()) {
+                    fetch_status->setText("No online match found.");
+                    return;
+                }
+                const auto& first = results.front();
+                if (title_edit->text().trimmed().isEmpty()) {
+                    title_edit->setText(QString::fromStdString(first.title));
+                }
+                if (artist_edit->text().trimmed().isEmpty()) {
+                    artist_edit->setText(QString::fromStdString(first.artist));
+                }
+                content_edit->setPlainText(QString::fromStdString(first.content));
+                fetch_status->setText(QString("Found: %1").arg(QString::fromStdString(first.title)));
+            }, Qt::QueuedConnection);
+        });
+    });
+
+    connect(cancel_btn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    connect(save_btn, &QPushButton::clicked, [&]() {
+        QString title = title_edit->text().trimmed();
+        QString artist = artist_edit->text().trimmed();
+        QString content = content_edit->toPlainText().trimmed();
+
+        if (title.isEmpty()) {
+            QMessageBox::warning(&dlg, "Missing Title", "Please enter a song title.");
+            return;
+        }
+        if (content.isEmpty()) {
+            QMessageBox::warning(&dlg, "Missing Lyrics", "Please enter or paste the song lyrics.");
+            return;
+        }
+
+        lyrics_engine.GetDB().AddSong(title.toStdString(), artist.toStdString(), content.toStdString(), "User Import");
+        dlg.accept();
+    });
+
+    if (dlg.exec() == QDialog::Accepted) {
+        OnLibraryClicked();
+        QString new_title = title_edit->text().trimmed();
+        for (int i = 0; i < songs_list->count(); ++i) {
+            if (songs_list->item(i)->text().startsWith(new_title, Qt::CaseInsensitive)) {
+                songs_list->setCurrentRow(i);
+                break;
+            }
+        }
     }
 }
 

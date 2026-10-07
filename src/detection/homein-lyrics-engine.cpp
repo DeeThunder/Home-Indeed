@@ -96,14 +96,18 @@ void HomeInLyricsEngine::FetchFromWeb(const std::string& query, SearchCallback c
                     QJsonObject obj = arr[i].toObject();
                     QString plainLyrics = obj["plainLyrics"].toString();
                     QString syncedLyrics = obj["syncedLyrics"].toString();
-                    QString lyrics = !syncedLyrics.trimmed().isEmpty() ? syncedLyrics : plainLyrics;
-                    if (lyrics.trimmed().isEmpty()) continue;
+                    QString lyrics = !plainLyrics.trimmed().isEmpty() ? plainLyrics : syncedLyrics;
+                    if (lyrics.contains('[')) {
+                        lyrics.remove(QRegularExpression("\\[\\d+:\\d+(?:\\.\\d+)?\\]"));
+                    }
+                    lyrics = lyrics.trimmed();
+                    if (lyrics.isEmpty()) continue;
 
                     SongLyric s;
                     s.title = obj["trackName"].toString().toStdString();
                     s.artist = obj["artistName"].toString().toStdString();
                     s.content = lyrics.toStdString();
-                    s.source = syncedLyrics.trimmed().isEmpty() ? "LRCLIB" : "LRCLIB-LRC";
+                    s.source = "LRCLIB";
                     results.push_back(s);
 
                     if (IsDBOpen()) local_db.AddSong(s.title, s.artist, s.content, s.source);

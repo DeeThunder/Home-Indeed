@@ -4,6 +4,8 @@
 
 HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent), bible_db(db) {
     QVBoxLayout* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     // Translation Selection Area
     QHBoxLayout* trans_layout = new QHBoxLayout();
@@ -31,6 +33,7 @@ HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent),
     // Results List
     results_list = new QListWidget();
     results_list->setWordWrap(true);
+    results_list->setMinimumHeight(60);
     layout->addWidget(results_list);
 
     // Action Buttons
@@ -50,6 +53,7 @@ HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent),
     connect(search_box, &QLineEdit::returnPressed, this, &HomeInBibleTab::OnSearchTriggered);
     connect(push_live_btn, &QPushButton::clicked, this, &HomeInBibleTab::OnPushLiveClicked);
     connect(add_queue_btn, &QPushButton::clicked, this, &HomeInBibleTab::OnQueueClicked);
+    connect(results_list, &QListWidget::itemDoubleClicked, this, &HomeInBibleTab::OnPushLiveClicked);
 }
 
 void HomeInBibleTab::PopulateTranslations() {
@@ -200,6 +204,13 @@ void HomeInBibleTab::OnSearchTriggered() {
 
         QListWidgetItem* item = new QListWidgetItem(display, results_list);
         item->setData(Qt::UserRole, payload);
+    }
+
+    if (results_list->count() > 0) {
+        results_list->setCurrentRow(0);
+    } else {
+        QListWidgetItem* empty_item = new QListWidgetItem(QString("No matching scriptures found for '%1'.").arg(query), results_list);
+        empty_item->setFlags(Qt::NoItemFlags);
     }
 }
 

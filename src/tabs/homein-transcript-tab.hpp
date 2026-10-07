@@ -25,6 +25,7 @@ signals:
 private:
     QPushButton* mic_btn;
     QPushButton* pause_btn;
+    QPushButton* clear_btn;
     QLabel* ai_status_label;
     QProgressBar* audio_level_bar;
     QTextEdit* transcript_box;
