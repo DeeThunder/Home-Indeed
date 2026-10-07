@@ -42,22 +42,33 @@ HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/HomeIndeed";
     QDir().mkpath(dataPath);
 
+    // 1. Authoritative Bible DB resolution
     QString biblePath = dataPath + "/homein-bible.db";
-    if (!QFileInfo::exists(biblePath)) {
-        char* mod_file = obs_module_file("homein-bible.db");
-        if (mod_file) {
-            QFile::copy(QString::fromUtf8(mod_file), biblePath);
-            bfree(mod_file);
-        }
-    }
-    bible_db.Open(biblePath.toStdString());
+    char* mod_file = obs_module_file("homein-bible.db");
+    QString installedBiblePath = mod_file ? QString::fromUtf8(mod_file) : QString();
+    if (mod_file) bfree(mod_file);
 
+    QString chosenBiblePath = biblePath;
+    if (!installedBiblePath.isEmpty() && QFileInfo::exists(installedBiblePath)) {
+        // If appData bible is missing or significantly smaller than the installed bundle, sync it
+        if (!QFileInfo::exists(biblePath) || QFileInfo(biblePath).size() < QFileInfo(installedBiblePath).size()) {
+            QFile::remove(biblePath);
+            QFile::copy(installedBiblePath, biblePath);
+        }
+        chosenBiblePath = QFileInfo::exists(biblePath) ? biblePath : installedBiblePath;
+    }
+    bible_db.Open(chosenBiblePath.toStdString());
+
+    // 2. Lyrics DB resolution
     QString lyricsPath = dataPath + "/homein-lyrics.db";
-    if (!QFileInfo::exists(lyricsPath)) {
-        char* mod_file = obs_module_file("homein-lyrics.db");
-        if (mod_file) {
-            QFile::copy(QString::fromUtf8(mod_file), lyricsPath);
-            bfree(mod_file);
+    char* mod_lyrics = obs_module_file("homein-lyrics.db");
+    QString installedLyricsPath = mod_lyrics ? QString::fromUtf8(mod_lyrics) : QString();
+    if (mod_lyrics) bfree(mod_lyrics);
+
+    if (!installedLyricsPath.isEmpty() && QFileInfo::exists(installedLyricsPath)) {
+        if (!QFileInfo::exists(lyricsPath) || QFileInfo(lyricsPath).size() < 40000) {
+            QFile::remove(lyricsPath);
+            QFile::copy(installedLyricsPath, lyricsPath);
         }
     }
     lyrics_engine.Initialize(lyricsPath.toStdString());
@@ -66,6 +77,9 @@ HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
 }
 
 HomeInDock::~HomeInDock() {
+    if (render_timer) {
+        render_timer->stop();
+    }
     StopTranscription();
 }
 
@@ -116,11 +130,28 @@ void HomeInDock::SetupUI() {
     connect(settings_tab, &HomeInSettingsTab::OverlaySettingsChanged, this, [this](const OverlaySettings& s) {
         if (HomeInRenderer* renderer = GetActiveRenderer()) {
             renderer->UpdateSettings(s);
+            renderer->PrepareTexture();
         }
     });
     if (HomeInRenderer* renderer = GetActiveRenderer()) {
         renderer->UpdateSettings(settings_tab->GetOverlaySettings());
+        renderer->PrepareTexture();
     }
+
+    // Dedicated 30ms render & audio monitor loop
+    render_timer = new QTimer(this);
+    connect(render_timer, &QTimer::timeout, this, [this]() {
+        if (HomeInRenderer* renderer = GetActiveRenderer()) {
+            renderer->PrepareTexture();
+        }
+        if (transcript_tab) {
+            HomeInAudioHandler* handler = GetAudioHandler();
+            if (handler) {
+                transcript_tab->UpdateAudioLevel(static_cast<int>(handler->GetLastLevel() * 100.0f));
+            }
+        }
+    });
+    render_timer->start(30);
 }
 
 void HomeInDock::StartTranscription() {
@@ -305,5 +336,6 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
 void HomeInDock::PushToOverlay(const QString& text) {
     if (HomeInRenderer* renderer = GetActiveRenderer()) {
         renderer->SetText(text.toStdString());
+        renderer->PrepareTexture();
     }
 }

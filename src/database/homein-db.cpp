@@ -101,6 +101,20 @@ void HomeInDB::RunMigration() {
     }
 
     sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_v_lookup ON verses(book_id, chapter, verse);", nullptr, nullptr, nullptr);
+
+    sqlite3_stmt* fts_check = nullptr;
+    bool fts_missing = true;
+    if (sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='verses_fts'", -1, &fts_check, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(fts_check) == SQLITE_ROW) {
+            fts_missing = false;
+        }
+        sqlite3_finalize(fts_check);
+    }
+    if (fts_missing) {
+        blog(LOG_INFO, "HomeIndeed: Rebuilding missing verses_fts FTS5 shadow table...");
+        sqlite3_exec(db, "CREATE VIRTUAL TABLE IF NOT EXISTS verses_fts USING fts5(text, content='verses', content_rowid='id');", nullptr, nullptr, nullptr);
+        sqlite3_exec(db, "INSERT INTO verses_fts(verses_fts) VALUES('rebuild');", nullptr, nullptr, nullptr);
+    }
 }
 
 void HomeInDB::ValidateDatabase() {
@@ -121,10 +135,10 @@ bool HomeInDB::GetVerse(const std::string& book_name, int chapter, int verse,
         "FROM verses v "
         "JOIN books b ON v.book_id = b.id "
         "JOIN translations t ON v.translation_id = t.id "
-        "WHERE (b.name = ? OR b.abbreviation = ?) "
+        "WHERE (b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?) "
         "AND CAST(v.chapter AS INTEGER) = ? "
         "AND CAST(v.verse AS INTEGER) = ? "
-        "AND t.abbreviation = ? "
+        "AND t.abbreviation COLLATE NOCASE = ? "
         "LIMIT 1";
 
     sqlite3_stmt* stmt;
@@ -169,10 +183,10 @@ std::vector<BibleVerse> HomeInDB::GetRangeVerses(const std::string& book_name, i
         "FROM verses v "
         "JOIN books b ON v.book_id = b.id "
         "JOIN translations t ON v.translation_id = t.id "
-        "WHERE (b.name = ? OR b.abbreviation = ?) "
+        "WHERE (b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?) "
         "AND CAST(v.chapter AS INTEGER) = ? "
         "AND verse_num >= ? AND verse_num <= ? "
-        "AND t.abbreviation = ? "
+        "AND t.abbreviation COLLATE NOCASE = ? "
         "ORDER BY verse_num ASC";
 
     sqlite3_stmt* stmt;
@@ -213,7 +227,7 @@ int HomeInDB::GetChapterCount(const std::string& book_name) {
     const char* sql =
         "SELECT MAX(CAST(v.chapter AS INTEGER)) FROM verses v "
         "JOIN books b ON v.book_id = b.id "
-        "WHERE b.name = ? OR b.abbreviation = ?";
+        "WHERE b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?";
 
     sqlite3_stmt* stmt;
     int count = 0;

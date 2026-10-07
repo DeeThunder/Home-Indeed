@@ -85,8 +85,16 @@ HomeInRenderer::~HomeInRenderer() {
 void HomeInRenderer::SetText(const std::string& text) {
     std::lock_guard<std::mutex> lock(text_mutex);
     if (current_text != text) {
-        pending_text  = text;
-        is_fading_out = true;
+        if (current_text.empty() || current_alpha <= 0.0f) {
+            current_text  = text;
+            pending_text.clear();
+            is_fading_out = false;
+            current_alpha = 1.0f;
+            dirty         = true;
+        } else {
+            pending_text  = text;
+            is_fading_out = true;
+        }
     }
 }
 
@@ -97,10 +105,8 @@ void HomeInRenderer::UpdateSettings(const OverlaySettings& new_settings) {
 }
 
 // FIX #14: PrepareTexture() runs Qt QPainter on the Qt main thread (called
-// from the dock's level_timer). It pre-renders the QImage with alpha already
+// from the dock's timer or direct push). It pre-renders the QImage with alpha already
 // baked in for the current fade level, then signals the GPU upload via image_ready.
-// This prevents calling QPainter from OBS's graphics/render thread (UB on some
-// platforms, blank textures on others).
 void HomeInRenderer::PrepareTexture() {
     std::string     text_to_draw;
     OverlaySettings draw_settings;
@@ -112,6 +118,10 @@ void HomeInRenderer::PrepareTexture() {
         text_to_draw  = current_text;
         draw_settings = settings;
         alpha         = current_alpha;
+        if (alpha <= 0.0f && !text_to_draw.empty()) {
+            alpha = 1.0f;
+            current_alpha = 1.0f;
+        }
     }
 
     QImage image(width, height, QImage::Format_ARGB32_Premultiplied);
@@ -305,6 +315,11 @@ void HomeInRenderer::Render(gs_effect_t* effect) {
             current_alpha -= fade_speed;
             dirty = true;
         }
+    }
+
+    // Safety check: if texture has not been prepared yet but text is active, prepare it immediately
+    if (!texture && !current_text.empty()) {
+        PrepareTexture();
     }
 
     // GPU upload (safe here — Qt paint already done in PrepareTexture)

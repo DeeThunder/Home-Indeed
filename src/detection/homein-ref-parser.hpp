@@ -38,3 +38,5 @@ private:
     std::shared_ptr<SermonContext> context;
     std::string active_language = "auto";
 };
+
+std::string ResolveBookAlias(const std::string& book_candidate);

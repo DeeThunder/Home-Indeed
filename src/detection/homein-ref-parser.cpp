@@ -54,7 +54,7 @@ static const std::map<std::string, std::string> BOOK_ALIASES = {
     {"Ifihan", "Revelation"}, {"Wahayin", "Revelation"}, {"Nkpughe", "Revelation"}
 };
 
-static std::string ResolveBookAlias(const std::string& book_candidate) {
+std::string ResolveBookAlias(const std::string& book_candidate) {
     auto match_exact = [](const std::string& str) -> std::string {
         for (const auto& pair : BOOK_ALIASES) {
             if (iequals(str, pair.first)) return pair.second;

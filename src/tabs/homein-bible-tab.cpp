@@ -1,6 +1,7 @@
 #include "homein-bible-tab.hpp"
 #include <QMessageBox>
 #include <QRegularExpression>
+#include "../detection/homein-ref-parser.hpp"
 
 HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent), bible_db(db) {
     QVBoxLayout* layout = new QVBoxLayout(this);
@@ -98,61 +99,110 @@ void HomeInBibleTab::OnSearchTriggered() {
     if (prim_abbr.isEmpty()) prim_abbr = "KJV";
     QString sec_abbr = secondary_trans_combo->currentData().toString();
 
-    // 1. Check if query is a direct reference like "John 3:16" or "1 Cor 13:4"
-    static QRegularExpression ref_regex("^([1-3]?\\s*[A-Za-z]+)\\s+(\\d+)[:\\s]+(\\d+)$");
-    QRegularExpressionMatch match = ref_regex.match(query);
+    // 1. Check if query is a direct reference with verse or range (e.g. "John 3:16", "1 Cor 13:4-8", "Psalm 23:1")
+    static QRegularExpression ref_range_regex("^([1-3]?\\s*[A-Za-z]+)\\s+(\\d+)[:\\s]+(\\d+)(?:[-–](\\d+))?$");
+    QRegularExpressionMatch match_range = ref_range_regex.match(query);
 
-    if (match.hasMatch()) {
-        QString book = match.captured(1).trimmed();
-        int chapter = match.captured(2).toInt();
-        int verse = match.captured(3).toInt();
+    if (match_range.hasMatch()) {
+        QString raw_book = match_range.captured(1).trimmed();
+        std::string resolved = ResolveBookAlias(raw_book.toStdString());
+        std::string book = resolved.empty() ? raw_book.toStdString() : resolved;
+        int chapter = match_range.captured(2).toInt();
+        int v_start = match_range.captured(3).toInt();
+        int v_end   = match_range.captured(4).isEmpty() ? v_start : match_range.captured(4).toInt();
+        if (v_end < v_start) v_end = v_start;
 
-        BibleVerse pv;
-        if (bible_db.GetVerse(book.toStdString(), chapter, verse, prim_abbr.toStdString(), pv)) {
-            QString display;
-            QString payload;
+        if (v_start == v_end) {
+            BibleVerse pv;
+            if (bible_db.GetVerse(book, chapter, v_start, prim_abbr.toStdString(), pv)) {
+                QString display;
+                QString payload;
 
-            if (!sec_abbr.isEmpty() && sec_abbr != prim_abbr) {
-                BibleVerse sv;
-                if (bible_db.GetVerse(book.toStdString(), chapter, verse, sec_abbr.toStdString(), sv)) {
-                    display = QString("%1 %2:%3 (%4 / %5)\n[%4] %6\n[%5] %7")
-                        .arg(QString::fromStdString(pv.book_name))
-                        .arg(chapter)
-                        .arg(verse)
-                        .arg(prim_abbr)
-                        .arg(sec_abbr)
-                        .arg(QString::fromStdString(pv.text))
-                        .arg(QString::fromStdString(sv.text));
+                if (!sec_abbr.isEmpty() && sec_abbr != prim_abbr) {
+                    BibleVerse sv;
+                    if (bible_db.GetVerse(book, chapter, v_start, sec_abbr.toStdString(), sv)) {
+                        display = QString("%1 %2:%3 (%4 / %5)\n[%4] %6\n[%5] %7")
+                            .arg(QString::fromStdString(pv.book_name))
+                            .arg(chapter)
+                            .arg(v_start)
+                            .arg(prim_abbr)
+                            .arg(sec_abbr)
+                            .arg(QString::fromStdString(pv.text))
+                            .arg(QString::fromStdString(sv.text));
 
-                    payload = QString("%1 %2:%3 (%4 / %5)\n[%4] %6\n\n[%5] %7")
-                        .arg(QString::fromStdString(pv.book_name))
-                        .arg(chapter)
-                        .arg(verse)
-                        .arg(prim_abbr)
-                        .arg(sec_abbr)
-                        .arg(QString::fromStdString(pv.text))
-                        .arg(QString::fromStdString(sv.text));
+                        payload = QString("%1 %2:%3 (%4 / %5)\n[%4] %6\n\n[%5] %7")
+                            .arg(QString::fromStdString(pv.book_name))
+                            .arg(chapter)
+                            .arg(v_start)
+                            .arg(prim_abbr)
+                            .arg(sec_abbr)
+                            .arg(QString::fromStdString(pv.text))
+                            .arg(QString::fromStdString(sv.text));
+                    } else {
+                        display = QString("%1 %2:%3 (%4)\n%5")
+                            .arg(QString::fromStdString(pv.book_name))
+                            .arg(chapter)
+                            .arg(v_start)
+                            .arg(prim_abbr)
+                            .arg(QString::fromStdString(pv.text));
+                        payload = display;
+                    }
                 } else {
                     display = QString("%1 %2:%3 (%4)\n%5")
                         .arg(QString::fromStdString(pv.book_name))
                         .arg(chapter)
-                        .arg(verse)
+                        .arg(v_start)
                         .arg(prim_abbr)
                         .arg(QString::fromStdString(pv.text));
                     payload = display;
                 }
-            } else {
-                display = QString("%1 %2:%3 (%4)\n%5")
-                    .arg(QString::fromStdString(pv.book_name))
-                    .arg(chapter)
-                    .arg(verse)
-                    .arg(prim_abbr)
-                    .arg(QString::fromStdString(pv.text));
-                payload = display;
-            }
 
-            QListWidgetItem* item = new QListWidgetItem(display, results_list);
-            item->setData(Qt::UserRole, payload);
+                QListWidgetItem* item = new QListWidgetItem(display, results_list);
+                item->setData(Qt::UserRole, payload);
+                results_list->setCurrentRow(0);
+                return;
+            }
+        } else {
+            auto range_verses = bible_db.GetRangeVerses(book, chapter, v_start, v_end, prim_abbr.toStdString());
+            if (!range_verses.empty()) {
+                QString combined_text;
+                for (const auto& rv : range_verses) {
+                    if (!combined_text.isEmpty()) combined_text += " ";
+                    combined_text += QString("%1 %2").arg(rv.verse).arg(QString::fromStdString(rv.text));
+                }
+                QString display = QString("%1 %2:%3-%4 (%5)\n%6")
+                    .arg(QString::fromStdString(range_verses.front().book_name))
+                    .arg(chapter).arg(v_start).arg(v_end).arg(prim_abbr).arg(combined_text);
+                QListWidgetItem* item = new QListWidgetItem(display, results_list);
+                item->setData(Qt::UserRole, display);
+                results_list->setCurrentRow(0);
+                return;
+            }
+        }
+    }
+
+    // 2. Check if query is a chapter-level reference (e.g. "John 3", "Psalm 23", "Genesis 1")
+    static QRegularExpression chapter_regex("^([1-3]?\\s*[A-Za-z]+)\\s+(\\d+)$");
+    QRegularExpressionMatch match_chap = chapter_regex.match(query);
+    if (match_chap.hasMatch()) {
+        QString raw_book = match_chap.captured(1).trimmed();
+        std::string resolved = ResolveBookAlias(raw_book.toStdString());
+        std::string book = resolved.empty() ? raw_book.toStdString() : resolved;
+        int chapter = match_chap.captured(2).toInt();
+
+        auto chapter_verses = bible_db.GetChapterVerses(book, chapter, prim_abbr.toStdString());
+        if (!chapter_verses.empty()) {
+            for (const auto& v : chapter_verses) {
+                QString display = QString("%1 %2:%3 (%4)\n%5")
+                    .arg(QString::fromStdString(v.book_name))
+                    .arg(v.chapter)
+                    .arg(v.verse)
+                    .arg(prim_abbr)
+                    .arg(QString::fromStdString(v.text));
+                QListWidgetItem* item = new QListWidgetItem(display, results_list);
+                item->setData(Qt::UserRole, display);
+            }
+            results_list->setCurrentRow(0);
             return;
         }
     }
