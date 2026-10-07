@@ -147,16 +147,6 @@ void HomeInRenderer::PrepareTexture() {
             bodyStr = qFull.mid(firstNL + 1);
         }
 
-        // Extract verse number (Bible only)
-        QString verseNum = "";
-        if (!isLyrics && !bodyStr.isEmpty() && bodyStr[0].isDigit()) {
-            int spaceIdx = bodyStr.indexOf(' ');
-            if (spaceIdx != -1) {
-                verseNum = bodyStr.left(spaceIdx);
-                bodyStr = bodyStr.mid(spaceIdx + 1);
-            }
-        }
-
         // DEEP CLEAN: Remove any embedded superscript markers from the DB text itself
         static QRegularExpression superMarkers("[\\x{2070}-\\x{2079}\\x{00B9}\\x{00B2}\\x{00B3}]");
         bodyStr.remove(superMarkers);
@@ -214,42 +204,24 @@ void HomeInRenderer::PrepareTexture() {
             lyricFont.setBold(true);
             drawWithOutline(contentRect, bodyStr, lyricFont);
         } else {
-            // Bible Mode: FIXED-LEFT Layout
+            // Bible Mode
             QRect bodyRect = contentRect;
-            bodyRect.setHeight((int)(contentRect.height() * 0.85f));
+            bodyRect.setHeight((int)(contentRect.height() * 0.82f));
             
             QRect refRect = contentRect;
-            refRect.setTop(bodyRect.bottom() - 20);
+            refRect.setTop(bodyRect.bottom() - 10);
 
             int calculatedBodySize = (int)(draw_settings.base_font_size * 1.2f);
             QFont bodyFont(draw_settings.font_family, calculatedBodySize);
             bodyFont.setBold(true);
 
             if (!bodyStr.isEmpty()) {
-                if (!verseNum.isEmpty()) {
-                    // 1. Draw Verse Number FIXED TO LEFT
-                    QFont superFont(draw_settings.font_family, (int)(calculatedBodySize * 0.7f));
-                    superFont.setBold(true);
-                    
-                    // Extreme Left Margin & High Elevation
-                    QRect superRect = bodyRect;
-                    superRect.setWidth(150); 
-                    // Move it 80px left and 70% of font size up
-                    superRect.translate(-80, -(int)(calculatedBodySize * 0.7f));
-                    
-                    drawWithOutline(superRect, verseNum, superFont, Qt::AlignLeft | Qt::AlignTop);
-                    
-                    // 2. Draw Main Body using the user's selected alignment (Center, Left, Right)
-                    drawWithOutline(bodyRect, bodyStr, bodyFont);
-                } else {
-                    drawWithOutline(bodyRect, bodyStr, bodyFont);
-                }
+                drawWithOutline(bodyRect, bodyStr, bodyFont);
             }
             
             if (!refStr.isEmpty()) {
-                QFont refFont(draw_settings.font_family, (int)(draw_settings.base_font_size * 0.7f));
+                QFont refFont(draw_settings.font_family, (int)(draw_settings.base_font_size * 0.75f));
                 refFont.setBold(true);
-                refFont.setItalic(true);
                 drawWithOutline(refRect, refStr, refFont);
             }
         }

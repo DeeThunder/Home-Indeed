@@ -19,7 +19,7 @@ public:
     void PushFirstResultLive();
     void AdvanceSlideOnSpeech(const std::string& spoken_text);
     bool IsLive() const { return is_live; }
-    void SetLive(bool live) { is_live = live; }
+    void SetLiveState(bool live);
 
 signals:
     // Same signals as the Bible Tab! The Main Dock handles them the exact same way.

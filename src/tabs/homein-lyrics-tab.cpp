@@ -45,6 +45,8 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     splitter->setSizes({120, 180});
     layout->addWidget(splitter);
 
+    sections_list->setVisible(false);
+
     // Action Buttons
     QHBoxLayout* action_layout = new QHBoxLayout();
     push_live_btn = new QPushButton("Push Live");
@@ -54,6 +56,8 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     action_layout->addWidget(add_queue_btn);
     layout->addLayout(action_layout);
 
+    SetLiveState(false);
+
     // Connections
     connect(search_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(library_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnLibraryClicked);
@@ -62,7 +66,11 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     connect(songs_list, &QListWidget::itemSelectionChanged, this, &HomeInLyricsTab::OnSongSelected);
     connect(push_live_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnPushLiveClicked);
     connect(add_queue_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnQueueClicked);
-    connect(sections_list, &QListWidget::itemDoubleClicked, this, &HomeInLyricsTab::OnPushLiveClicked);
+    connect(sections_list, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+        if (item) {
+            emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+        }
+    });
 
     // Automatically populate library so bundled songs appear on launch
     OnLibraryClicked();
@@ -74,6 +82,7 @@ void HomeInLyricsTab::OnSearchTriggered() {
 
     songs_list->clear();
     sections_list->clear();
+    sections_list->setVisible(false);
     songs_list->addItem("Searching...");
     const int request_id = ++search_request_id;
 
@@ -97,6 +106,7 @@ void HomeInLyricsTab::OnSearchTriggered() {
 void HomeInLyricsTab::OnLibraryClicked() {
     songs_list->clear();
     sections_list->clear();
+    sections_list->setVisible(false);
     songs_list->addItem("Loading library...");
     const int request_id = ++search_request_id;
 
@@ -127,7 +137,10 @@ void HomeInLyricsTab::OnSongSelected() {
                 item->setData(Qt::UserRole + 1, full_lyrics);
             }
         }
-        if (full_lyrics.isEmpty()) return;
+        if (full_lyrics.isEmpty()) {
+            sections_list->setVisible(false);
+            return;
+        }
 
         // Split by natural paragraph breaks (double newlines)
         QString normalized = full_lyrics;
@@ -165,7 +178,12 @@ void HomeInLyricsTab::OnSongSelected() {
 
         if (sections_list->count() > 0) {
             sections_list->setCurrentRow(0);
+            sections_list->setVisible(true);
+        } else {
+            sections_list->setVisible(false);
         }
+    } else {
+        sections_list->setVisible(false);
     }
 }
 
@@ -210,19 +228,41 @@ void HomeInLyricsTab::DisplayLiveMatch(const SongLyric& song, const std::string&
     }
 
     sections_list->setCurrentRow(best_index);
+    sections_list->setVisible(true);
 }
 
 void HomeInLyricsTab::PushFirstResultLive() {
     if (QListWidgetItem* item = sections_list->currentItem()) {
-        is_live = true;
         emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
     }
 }
 
 void HomeInLyricsTab::OnPushLiveClicked() {
+    if (is_live) {
+        emit RequestPushToOverlay("");
+        return;
+    }
     if (QListWidgetItem* item = sections_list->currentItem()) {
-        is_live = true;
         emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+    }
+}
+
+void HomeInLyricsTab::SetLiveState(bool live) {
+    is_live = live;
+    if (is_live) {
+        push_live_btn->setText("Clear Live");
+        push_live_btn->setStyleSheet(
+            "QPushButton { background-color: #d93025; color: #ffffff; font-weight: bold; border-radius: 4px; padding: 4px; }"
+            "QPushButton:hover { background-color: #ea4335; }"
+            "QPushButton:pressed { background-color: #b31412; }"
+        );
+    } else {
+        push_live_btn->setText("Push Live");
+        push_live_btn->setStyleSheet(
+            "QPushButton { background-color: #0d6efd; color: #ffffff; font-weight: bold; border-radius: 4px; padding: 4px; }"
+            "QPushButton:hover { background-color: #0b5ed7; }"
+            "QPushButton:pressed { background-color: #0a58ca; }"
+        );
     }
 }
 

@@ -27,6 +27,7 @@ signals:
 public slots:
     void PopulateBookGrid();
     void PopulateChapterGrid(const std::string& book, int chapters);
+    void SetLiveState(bool live);
 
 private:
     HomeInDB& bible_db;
@@ -48,6 +49,7 @@ private:
 
     std::string current_book;
     int current_chapter = 0;
+    bool is_live = false;
 
     void PopulateTranslations();
     void ClearGrid();

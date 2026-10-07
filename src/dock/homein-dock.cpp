@@ -334,8 +334,11 @@ void HomeInDock::HandleNewTranscript(const std::string& text) {
 
 
 void HomeInDock::PushToOverlay(const QString& text) {
+    bool has_text = !text.trimmed().isEmpty();
     if (HomeInRenderer* renderer = GetActiveRenderer()) {
         renderer->SetText(text.toStdString());
         renderer->PrepareTexture();
     }
+    if (bible_tab)  bible_tab->SetLiveState(has_text);
+    if (lyrics_tab) lyrics_tab->SetLiveState(has_text);
 }

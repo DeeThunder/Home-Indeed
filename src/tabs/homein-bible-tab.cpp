@@ -74,6 +74,8 @@ HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent),
     action_layout->addWidget(add_queue_btn);
     layout->addLayout(action_layout);
 
+    SetLiveState(false);
+
     // Populate translations
     PopulateTranslations();
 
@@ -86,7 +88,11 @@ HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent),
     connect(next_verse_btn, &QPushButton::clicked, this, &HomeInBibleTab::OnNextVerseClicked);
     connect(push_live_btn,  &QPushButton::clicked, this, &HomeInBibleTab::OnPushLiveClicked);
     connect(add_queue_btn,  &QPushButton::clicked, this, &HomeInBibleTab::OnQueueClicked);
-    connect(results_list,   &QListWidget::itemDoubleClicked, this, &HomeInBibleTab::OnPushLiveClicked);
+    connect(results_list,   &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem* item) {
+        if (item) {
+            emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+        }
+    });
 
     connect(translation_combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         if (!current_book.empty() && current_chapter > 0) {
@@ -95,14 +101,15 @@ HomeInBibleTab::HomeInBibleTab(HomeInDB& db, QWidget *parent) : QWidget(parent),
                 int sel_row = results_list->currentRow();
                 results_list->clear();
                 for (const auto& v : verses) {
-                    QString display = QString("%1 %2:%3 (%4)\n%5")
+                    QString payload = QString("%1 %2:%3 (%4)\n%5")
                         .arg(QString::fromStdString(v.book_name))
                         .arg(v.chapter)
                         .arg(v.verse)
                         .arg(QString::fromStdString(v.translation_abbr))
                         .arg(QString::fromStdString(v.text));
-                    QListWidgetItem* item = new QListWidgetItem(display, results_list);
-                    item->setData(Qt::UserRole, display);
+                    QString ui_display = QString("%1  %2").arg(v.verse).arg(QString::fromStdString(v.text));
+                    QListWidgetItem* item = new QListWidgetItem(ui_display, results_list);
+                    item->setData(Qt::UserRole, payload);
                 }
                 if (sel_row >= 0 && sel_row < results_list->count()) {
                     results_list->setCurrentRow(sel_row);
@@ -167,7 +174,11 @@ void HomeInBibleTab::PopulateBookGrid() {
 
     for (const auto& book : books) {
         QPushButton* btn = new QPushButton(QString::fromStdString(book), grid_container);
-        btn->setStyleSheet("padding: 4px; font-size: 11px;");
+        btn->setStyleSheet(
+            "QPushButton { background-color: #2c303c; color: #ffffff; border: 1px solid #4a5064; border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }"
+            "QPushButton:hover { background-color: #434c5e; border-color: #5294e2; }"
+            "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+        );
         connect(btn, &QPushButton::clicked, this, &HomeInBibleTab::OnBookClicked);
         grid_layout->addWidget(btn, row, col);
         col++;
@@ -188,7 +199,11 @@ void HomeInBibleTab::PopulateChapterGrid(const std::string& book, int chapters) 
 
     // Back to Books button
     QPushButton* back_btn = new QPushButton("⬅ Back to Books", grid_container);
-    back_btn->setStyleSheet("font-weight: bold; padding: 4px;");
+    back_btn->setStyleSheet(
+        "QPushButton { background-color: #3b4252; color: #88c0d0; border: 1px solid #4c566a; border-radius: 4px; font-weight: bold; padding: 5px; font-size: 12px; }"
+        "QPushButton:hover { background-color: #434c5e; color: #ffffff; }"
+        "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+    );
     connect(back_btn, &QPushButton::clicked, this, &HomeInBibleTab::PopulateBookGrid);
     grid_layout->addWidget(back_btn, 0, 0, 1, 4);
 
@@ -196,8 +211,12 @@ void HomeInBibleTab::PopulateChapterGrid(const std::string& book, int chapters) 
     const int cols = 8;
     for (int i = 1; i <= chapters; ++i) {
         QPushButton* btn = new QPushButton(QString::number(i), grid_container);
-        btn->setFixedSize(36, 30);
-        btn->setStyleSheet("font-size: 11px; font-weight: bold;");
+        btn->setFixedSize(36, 32);
+        btn->setStyleSheet(
+            "QPushButton { background-color: #2c303c; color: #ffffff; border: 1px solid #4a5064; border-radius: 4px; font-weight: bold; font-size: 12px; }"
+            "QPushButton:hover { background-color: #434c5e; border-color: #5294e2; }"
+            "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+        );
         connect(btn, &QPushButton::clicked, this, &HomeInBibleTab::OnChapterClicked);
         grid_layout->addWidget(btn, row, col);
         col++;
@@ -229,14 +248,15 @@ void HomeInBibleTab::OnChapterClicked() {
 
     auto verses = bible_db.GetChapterVerses(current_book, current_chapter, CurrentTranslation());
     for (const auto& v : verses) {
-        QString display = QString("%1 %2:%3 (%4)\n%5")
+        QString payload = QString("%1 %2:%3 (%4)\n%5")
             .arg(QString::fromStdString(v.book_name))
             .arg(v.chapter)
             .arg(v.verse)
             .arg(QString::fromStdString(v.translation_abbr))
             .arg(QString::fromStdString(v.text));
-        QListWidgetItem* item = new QListWidgetItem(display, results_list);
-        item->setData(Qt::UserRole, display);
+        QString ui_display = QString("%1  %2").arg(v.verse).arg(QString::fromStdString(v.text));
+        QListWidgetItem* item = new QListWidgetItem(ui_display, results_list);
+        item->setData(Qt::UserRole, payload);
     }
 
     status_label->setText(QString("%1 %2 (%3)").arg(QString::fromStdString(current_book)).arg(current_chapter).arg(QString::fromStdString(CurrentTranslation())));
@@ -339,14 +359,15 @@ void HomeInBibleTab::OnSearchTriggered() {
         auto chapter_verses = bible_db.GetChapterVerses(book, chapter, trans_abbr);
         if (!chapter_verses.empty()) {
             for (const auto& v : chapter_verses) {
-                QString display = QString("%1 %2:%3 (%4)\n%5")
+                QString payload = QString("%1 %2:%3 (%4)\n%5")
                     .arg(QString::fromStdString(v.book_name))
                     .arg(v.chapter)
                     .arg(v.verse)
                     .arg(QString::fromStdString(v.translation_abbr))
                     .arg(QString::fromStdString(v.text));
-                QListWidgetItem* item = new QListWidgetItem(display, results_list);
-                item->setData(Qt::UserRole, display);
+                QString ui_display = QString("%1  %2").arg(v.verse).arg(QString::fromStdString(v.text));
+                QListWidgetItem* item = new QListWidgetItem(ui_display, results_list);
+                item->setData(Qt::UserRole, payload);
             }
             results_list->setCurrentRow(0);
             status_label->setText(QString("%1 %2 (%3)").arg(QString::fromStdString(book)).arg(chapter).arg(QString::fromStdString(trans_abbr)));
@@ -358,15 +379,15 @@ void HomeInBibleTab::OnSearchTriggered() {
     // 3. Fallback to Full-Text Search across verse contents
     auto verses = bible_db.SearchVerses(query.toStdString(), 15);
     for (const auto& v : verses) {
-        QString display = QString("%1 %2:%3 (%4)\n%5")
+        QString payload = QString("%1 %2:%3 (%4)\n%5")
             .arg(QString::fromStdString(v.book_name))
             .arg(v.chapter)
             .arg(v.verse)
             .arg(QString::fromStdString(v.translation_abbr))
             .arg(QString::fromStdString(v.text));
 
-        QListWidgetItem* item = new QListWidgetItem(display, results_list);
-        item->setData(Qt::UserRole, display);
+        QListWidgetItem* item = new QListWidgetItem(payload, results_list);
+        item->setData(Qt::UserRole, payload);
     }
 
     if (results_list->count() > 0) {
@@ -385,7 +406,9 @@ void HomeInBibleTab::OnPrevVerseClicked() {
     int row = results_list->currentRow();
     if (row > 0) {
         results_list->setCurrentRow(row - 1);
-        OnPushLiveClicked();
+        if (QListWidgetItem* item = results_list->currentItem()) {
+            emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+        }
     }
 }
 
@@ -393,13 +416,38 @@ void HomeInBibleTab::OnNextVerseClicked() {
     int row = results_list->currentRow();
     if (row < results_list->count() - 1) {
         results_list->setCurrentRow(row + 1);
-        OnPushLiveClicked();
+        if (QListWidgetItem* item = results_list->currentItem()) {
+            emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+        }
     }
 }
 
 void HomeInBibleTab::OnPushLiveClicked() {
+    if (is_live) {
+        emit RequestPushToOverlay("");
+        return;
+    }
     if (QListWidgetItem* item = results_list->currentItem()) {
         emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+    }
+}
+
+void HomeInBibleTab::SetLiveState(bool live) {
+    is_live = live;
+    if (is_live) {
+        push_live_btn->setText("Clear Live");
+        push_live_btn->setStyleSheet(
+            "QPushButton { background-color: #d93025; color: #ffffff; font-weight: bold; border-radius: 4px; padding: 4px; }"
+            "QPushButton:hover { background-color: #ea4335; }"
+            "QPushButton:pressed { background-color: #b31412; }"
+        );
+    } else {
+        push_live_btn->setText("Push Live");
+        push_live_btn->setStyleSheet(
+            "QPushButton { background-color: #0d6efd; color: #ffffff; font-weight: bold; border-radius: 4px; padding: 4px; }"
+            "QPushButton:hover { background-color: #0b5ed7; }"
+            "QPushButton:pressed { background-color: #0a58ca; }"
+        );
     }
 }
 
@@ -418,5 +466,7 @@ void HomeInBibleTab::AutoSearchVerse(const QString& book, int chapter, int verse
 void HomeInBibleTab::PushFirstResultLive() {
     if (results_list->count() <= 0) return;
     results_list->setCurrentRow(0);
-    OnPushLiveClicked();
+    if (QListWidgetItem* item = results_list->currentItem()) {
+        emit RequestPushToOverlay(item->data(Qt::UserRole).toString());
+    }
 }
