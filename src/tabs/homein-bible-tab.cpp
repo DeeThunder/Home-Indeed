@@ -174,10 +174,31 @@ void HomeInBibleTab::PopulateBookGrid() {
 
     for (const auto& book : books) {
         QPushButton* btn = new QPushButton(QString::fromStdString(book), grid_container);
+        QFont f("Segoe UI", 10, QFont::Bold);
+        f.setWeight(QFont::ExtraBold);
+        btn->setFont(f);
+        QPalette p = btn->palette();
+        p.setColor(QPalette::ButtonText, Qt::white);
+        btn->setPalette(p);
         btn->setStyleSheet(
-            "QPushButton { background-color: #2c303c; color: #ffffff; border: 1px solid #4a5064; border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }"
-            "QPushButton:hover { background-color: #434c5e; border-color: #5294e2; }"
-            "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+            "QPushButton, QPushButton:enabled { "
+            "  background-color: #353b48; "
+            "  color: #ffffff !important; "
+            "  border: 1px solid #5a657c; "
+            "  border-radius: 4px; "
+            "  padding: 5px; "
+            "  font-size: 12px; "
+            "  font-weight: 800; "
+            "} "
+            "QPushButton:hover { "
+            "  background-color: #4b5366; "
+            "  color: #ffffff !important; "
+            "  border-color: #5294e2; "
+            "} "
+            "QPushButton:pressed { "
+            "  background-color: #5294e2; "
+            "  color: #ffffff !important; "
+            "}"
         );
         connect(btn, &QPushButton::clicked, this, &HomeInBibleTab::OnBookClicked);
         grid_layout->addWidget(btn, row, col);
@@ -199,10 +220,27 @@ void HomeInBibleTab::PopulateChapterGrid(const std::string& book, int chapters) 
 
     // Back to Books button
     QPushButton* back_btn = new QPushButton("⬅ Back to Books", grid_container);
+    QFont back_f("Segoe UI", 11, QFont::Bold);
+    back_f.setWeight(QFont::ExtraBold);
+    back_btn->setFont(back_f);
     back_btn->setStyleSheet(
-        "QPushButton { background-color: #3b4252; color: #88c0d0; border: 1px solid #4c566a; border-radius: 4px; font-weight: bold; padding: 5px; font-size: 12px; }"
-        "QPushButton:hover { background-color: #434c5e; color: #ffffff; }"
-        "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+        "QPushButton, QPushButton:enabled { "
+        "  background-color: #3b4252; "
+        "  color: #88c0d0 !important; "
+        "  border: 1px solid #5e6b82; "
+        "  border-radius: 4px; "
+        "  font-weight: 800; "
+        "  padding: 6px; "
+        "  font-size: 13px; "
+        "} "
+        "QPushButton:hover { "
+        "  background-color: #434c5e; "
+        "  color: #ffffff !important; "
+        "} "
+        "QPushButton:pressed { "
+        "  background-color: #5294e2; "
+        "  color: #ffffff !important; "
+        "}"
     );
     connect(back_btn, &QPushButton::clicked, this, &HomeInBibleTab::PopulateBookGrid);
     grid_layout->addWidget(back_btn, 0, 0, 1, 4);
@@ -211,11 +249,31 @@ void HomeInBibleTab::PopulateChapterGrid(const std::string& book, int chapters) 
     const int cols = 8;
     for (int i = 1; i <= chapters; ++i) {
         QPushButton* btn = new QPushButton(QString::number(i), grid_container);
-        btn->setFixedSize(36, 32);
+        btn->setMinimumSize(38, 34);
+        QFont f("Segoe UI", 12, QFont::Bold);
+        f.setWeight(QFont::Black);
+        btn->setFont(f);
+        QPalette p = btn->palette();
+        p.setColor(QPalette::ButtonText, Qt::white);
+        btn->setPalette(p);
         btn->setStyleSheet(
-            "QPushButton { background-color: #2c303c; color: #ffffff; border: 1px solid #4a5064; border-radius: 4px; font-weight: bold; font-size: 12px; }"
-            "QPushButton:hover { background-color: #434c5e; border-color: #5294e2; }"
-            "QPushButton:pressed { background-color: #5294e2; color: #ffffff; }"
+            "QPushButton, QPushButton:enabled { "
+            "  background-color: #353b48; "
+            "  color: #ffffff !important; "
+            "  border: 1px solid #5a657c; "
+            "  border-radius: 4px; "
+            "  font-weight: 900; "
+            "  font-size: 14px; "
+            "} "
+            "QPushButton:hover { "
+            "  background-color: #4b5366; "
+            "  color: #ffffff !important; "
+            "  border-color: #7aa2f7; "
+            "} "
+            "QPushButton:pressed { "
+            "  background-color: #3b71ca; "
+            "  color: #ffffff !important; "
+            "}"
         );
         connect(btn, &QPushButton::clicked, this, &HomeInBibleTab::OnChapterClicked);
         grid_layout->addWidget(btn, row, col);

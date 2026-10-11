@@ -243,14 +243,25 @@ if(WIN32)
   endif()
   set(CPACK_NSIS_PACKAGE_NAME "Home Indeed OBS Plugin")
   set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${_version}-windows-x64-Installer")
+  set(CPACK_NSIS_UNINSTALL_NAME "Uninstall-HomeIndeed")
   set(CPACK_NSIS_MODIFY_PATH OFF)
 
-  # Check if OBS is running during installation
+  # Check if OBS is running during installation and register in Windows Control Panel
   set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
     nsExec::Exec 'tasklist /fi \\\"IMAGENAME eq obs64.exe\\\" | find /i \\\"obs64.exe\\\"'
     Pop $0
     StrCmp $0 '0' 0 +2
       MessageBox MB_OK|MB_ICONEXCLAMATION 'OBS Studio is running. Please close OBS Studio before continuing installation.'
+
+    ; Register standalone entry in Windows Control Panel / Apps & Features
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayName' 'Home Indeed OBS Plugin'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayVersion' '${_version}'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'Publisher' 'Home Indeed Team'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'UninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\"'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'QuietUninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\" /S'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'InstallLocation' '$INSTDIR'
+    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoModify' 1
+    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoRepair' 1
   ")
 
   # Recursive deep cleanup on uninstallation
@@ -273,13 +284,17 @@ if(WIN32)
     Delete '$INSTDIR\\\\bin\\\\64bit\\\\libstdc++-6.dll'
     Delete '$INSTDIR\\\\bin\\\\64bit\\\\libwinpthread-1.dll'
 
+    ; Delete standalone uninstaller
+    Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
+
     ; Purge user AppData plugin configuration and database directories
     RMDir /r '$APPDATA\\\\obs-studio\\\\plugin_config\\\\home-indeed'
     RMDir /r '$APPDATA\\\\HomeIndeed'
     RMDir /r '$LOCALAPPDATA\\\\HomeIndeed'
 
-    ; Delete Windows registry configuration
+    ; Delete Windows registry configuration and Uninstall entry
     DeleteRegKey HKCU 'Software\\\\HomeIndeed'
+    DeleteRegKey HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed'
   ")
 elseif(APPLE)
   set(CPACK_GENERATOR "productbuild;ZIP")
