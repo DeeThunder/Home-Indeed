@@ -19,10 +19,17 @@
   Var ADD_TO_PATH_CURRENT_USER
   Var INSTALL_DESKTOP
   Var IS_DEFAULT_INSTALLDIR
+  Var MaintenanceDialog
+  Var RadioRepair
+  Var RadioRemove
+  Var IsInstalled
+  Var ExistingUninstaller
 ;--------------------------------
 ;Include Modern UI
 
   !include "MUI.nsh"
+  !include "nsDialogs.nsh"
+  !include "LogicLib.nsh"
 
   ;Default installation folder
   InstallDir "@CPACK_NSIS_INSTALL_ROOT@\@CPACK_PACKAGE_INSTALL_DIRECTORY@"
@@ -535,18 +542,26 @@ FunctionEnd
 
 ;--------------------------------
 ;Pages
+  Page custom MaintenancePage MaintenancePageLeave
+
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfMaintenance
   @CPACK_NSIS_INSTALLER_WELCOME_TITLE_CODE@
   @CPACK_NSIS_INSTALLER_WELCOME_TITLE_3LINES_CODE@
   !insertmacro MUI_PAGE_WELCOME
 
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfMaintenance
   @CPACK_NSIS_LICENSE_PAGE@
+
   Page custom InstallOptionsPage
+
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfMaintenance
   !insertmacro MUI_PAGE_DIRECTORY
 
   ;Start Menu Folder Page Configuration
   !define MUI_STARTMENUPAGE_REGISTRY_ROOT "SHCTX"
   !define MUI_STARTMENUPAGE_REGISTRY_KEY "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
   !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME "Start Menu Folder"
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfMaintenance
   !insertmacro MUI_PAGE_STARTMENU Application $STARTMENU_FOLDER
 
   @CPACK_NSIS_PAGE_COMPONENTS@
@@ -661,8 +676,14 @@ Section "-Core installation"
   ;Store installation folder
   WriteRegStr SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "" $INSTDIR
 
-  ;Create uninstaller
-  WriteUninstaller "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
+  ;Create maintenance application in Common Files
+  CreateDirectory "$COMMONFILES64\HomeIndeed"
+  WriteUninstaller "$COMMONFILES64\HomeIndeed\Setup.exe"
+
+  ; Clean up legacy loose uninstaller from obs-studio root if present
+  Delete "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
+  Delete "$INSTDIR\Uninstall-HomeIndeed.exe"
+
   Push "DisplayName"
   Push "@CPACK_NSIS_DISPLAY_NAME@"
   Call ConditionalAddToRegistry
@@ -673,26 +694,24 @@ Section "-Core installation"
   Push "@CPACK_PACKAGE_VENDOR@"
   Call ConditionalAddToRegistry
   Push "UninstallString"
-  Push "$\"$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe$\""
+  Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\""
+  Call ConditionalAddToRegistry
+  Push "ModifyPath"
+  Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\""
+  Call ConditionalAddToRegistry
+  Push "InstallLocation"
+  Push "$INSTDIR"
+  Call ConditionalAddToRegistry
+  Push "NoModify"
+  Push "0"
   Call ConditionalAddToRegistry
   Push "NoRepair"
-  Push "1"
+  Push "0"
   Call ConditionalAddToRegistry
-
-  !ifdef CPACK_NSIS_ADD_REMOVE
-  ;Create add/remove functionality
-  Push "ModifyPath"
-  Push "$INSTDIR\AddRemove.exe"
-  Call ConditionalAddToRegistry
-  !else
-  Push "NoModify"
-  Push "1"
-  Call ConditionalAddToRegistry
-  !endif
 
   ; Optional registration
   Push "DisplayIcon"
-  Push "$INSTDIR\@CPACK_NSIS_INSTALLED_ICON_NAME@"
+  Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\",0"
   Call ConditionalAddToRegistry
   Push "HelpLink"
   Push "@CPACK_NSIS_HELP_LINK@"
@@ -710,7 +729,7 @@ Section "-Core installation"
   CreateDirectory "$SMPROGRAMS\$STARTMENU_FOLDER"
 @CPACK_NSIS_CREATE_ICONS@
 @CPACK_NSIS_CREATE_ICONS_EXTRA@
-  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Uninstall.lnk" "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
+  CreateShortCut "$SMPROGRAMS\$STARTMENU_FOLDER\Uninstall.lnk" "$COMMONFILES64\HomeIndeed\Setup.exe"
 
   ;Read a value from an InstallOptions INI file
   !insertmacro MUI_INSTALLOPTIONS_READ $DO_NOT_ADD_TO_PATH "NSIS.InstallOptions.ini" "Field 2" "State"
@@ -751,6 +770,8 @@ SectionEnd
 ;--------------------------------
 ; Create custom pages
 Function InstallOptionsPage
+  StrCmp $IsInstalled "1" 0 +2
+    Abort
   !insertmacro MUI_HEADER_TEXT "Install Options" "Choose options for installing @CPACK_NSIS_PACKAGE_NAME@"
   !insertmacro MUI_INSTALLOPTIONS_DISPLAY "NSIS.InstallOptions.ini"
 
@@ -849,7 +870,10 @@ Section "Uninstall"
 !endif
 
   ;Remove the uninstaller itself.
+  Delete "$COMMONFILES64\HomeIndeed\Setup.exe"
+  RMDir "$COMMONFILES64\HomeIndeed"
   Delete "$INSTDIR\@CPACK_NSIS_UNINSTALL_NAME@.exe"
+  Delete "$INSTDIR\Uninstall-HomeIndeed.exe"
   DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@"
 
   ;Remove the installation directory if it is empty.
@@ -917,43 +941,82 @@ SectionEnd
 ; Choose different default installation folder based on SV_ALLUSERS...
 ; "Program Files" for AllUsers, "My Documents" for JustMe...
 
-Function .onInit
-  ; Detect existing installation
-  ReadRegStr $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "UninstallString"
-  StrCmp $0 "" inst
+Function MaintenancePage
+  StrCmp $IsInstalled "1" 0 skip_maint
 
-  MessageBox MB_YESNOCANCEL|MB_ICONQUESTION \
-  "@CPACK_NSIS_PACKAGE_NAME@ is already installed on your computer.$\n$\nWhat would you like to do?$\n$\n- Click 'Yes' to Repair / Reinstall (reinstalls and overwrites all plugin files)$\n- Click 'No' to Remove / Uninstall (completely removes Home Indeed from OBS and your PC)$\n- Click 'Cancel' to exit setup." \
-  /SD IDYES IDYES repair IDNO remove
+  !insertmacro MUI_HEADER_TEXT "Change or remove @CPACK_NSIS_PACKAGE_NAME@" "Select an option below."
+
+  nsDialogs::Create 1018
+  Pop $MaintenanceDialog
+  ${If} $MaintenanceDialog == error
+    Abort
+  ${EndIf}
+
+  ; Disable Back button on maintenance page
+  GetDlgItem $0 $HWNDPARENT 3
+  EnableWindow $0 0
+
+  ${NSD_CreateRadioButton} 20u 18u 260u 14u "Repair"
+  Pop $RadioRepair
+  SendMessage $RadioRepair ${BM_SETCHECK} ${BST_CHECKED} 0
+
+  ${NSD_CreateLabel} 35u 34u 245u 22u "Reinstall @CPACK_NSIS_PACKAGE_NAME@, replacing missing or damaged files."
+  Pop $0
+
+  ${NSD_CreateRadioButton} 20u 62u 260u 14u "Remove"
+  Pop $RadioRemove
+
+  ${NSD_CreateLabel} 35u 78u 245u 22u "Remove @CPACK_NSIS_PACKAGE_NAME@ from this computer."
+  Pop $0
+
+  nsDialogs::Show
+  Return
+
+skip_maint:
   Abort
+FunctionEnd
 
-remove:
-  ClearErrors
-  ; Remove surrounding quotes from UninstallString if present
-  StrCpy $2 $0 1 0
-  StrCmp $2 "$\"" 0 +2
-  StrCpy $0 $0 "" 1
-  StrCpy $2 $0 1 -1
-  StrCmp $2 "$\"" 0 +2
-  StrCpy $0 $0 -1
+Function MaintenancePageLeave
+  ${NSD_GetState} $RadioRemove $0
+  ${If} $0 == ${BST_CHECKED}
+    ; User selected Remove!
+    ; Strip quotes from uninstaller path if present
+    StrCpy $2 $ExistingUninstaller 1 0
+    StrCmp $2 "$\"" 0 +2
+    StrCpy $ExistingUninstaller $ExistingUninstaller "" 1
+    StrCpy $2 $ExistingUninstaller 1 -1
+    StrCmp $2 "$\"" 0 +2
+    StrCpy $ExistingUninstaller $ExistingUninstaller -1
 
-  StrLen $2 "\@CPACK_NSIS_UNINSTALL_NAME@.exe"
-  StrCpy $3 $0 -$2
-  ExecWait '"$0" /S _?=$3'
-  IfErrors uninst_failed uninst_success
+    ; Execute silent uninstallation
+    ExecWait '"$ExistingUninstaller" /S'
+    IfErrors uninst_failed uninst_success
 
 uninst_success:
-  MessageBox MB_OK|MB_ICONINFORMATION "@CPACK_NSIS_PACKAGE_NAME@ has been successfully removed from your computer and OBS."
-  Abort
+    MessageBox MB_OK|MB_ICONINFORMATION "@CPACK_NSIS_PACKAGE_NAME@ has been successfully removed from this computer."
+    Quit
 
 uninst_failed:
-  MessageBox MB_OK|MB_ICONSTOP "Uninstallation could not be completed."
-  Abort
+    MessageBox MB_OK|MB_ICONSTOP "Uninstallation could not be completed."
+    Quit
+  ${EndIf}
+FunctionEnd
 
-repair:
-  ; Continue to installation to repair/reinstall and overwrite files
-  Goto inst
+Function SkipIfMaintenance
+  StrCmp $IsInstalled "1" 0 not_maint
+    Abort
+not_maint:
+FunctionEnd
 
+Function .onInit
+  ; Detect existing installation
+  ReadRegStr $ExistingUninstaller HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "UninstallString"
+  StrCmp $ExistingUninstaller "" not_installed
+    StrCpy $IsInstalled "1"
+    Goto inst
+not_installed:
+    StrCpy $IsInstalled "0"
+    Goto inst
 
 inst:
   ; Reads components status for registry

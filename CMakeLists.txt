@@ -256,7 +256,8 @@ if(WIN32)
     StrCmp $0 '0' 0 +2
       MessageBox MB_OK|MB_ICONEXCLAMATION 'OBS Studio is running. Please close OBS Studio before continuing installation.'
 
-    ; Clean up legacy standalone home-indeed folder if left over from older builds
+    ; Clean up legacy standalone files if left over from older builds
+    Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
     RMDir /r '$INSTDIR\\\\home-indeed'
     RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
 
@@ -264,12 +265,13 @@ if(WIN32)
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayName' 'Home Indeed OBS Plugin'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayVersion' '${_version}'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'Publisher' 'Home Indeed Team'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'UninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\"'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'QuietUninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\" /S'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayIcon' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\",0'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'UninstallString' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\"'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'ModifyPath' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\"'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'QuietUninstallString' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\" /S'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayIcon' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\",0'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'InstallLocation' '$INSTDIR'
-    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoModify' 1
-    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoRepair' 1
+    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoModify' 0
+    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoRepair' 0
   ")
 
   # Recursive deep cleanup on uninstallation
@@ -292,7 +294,11 @@ if(WIN32)
     Delete '$INSTDIR\\\\bin\\\\64bit\\\\libstdc++-6.dll'
     Delete '$INSTDIR\\\\bin\\\\64bit\\\\libwinpthread-1.dll'
 
-    ; Delete standalone uninstaller
+    ; Delete uninstaller and maintenance folder in Common Files
+    Delete '$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe'
+    RMDir '$COMMONFILES64\\\\HomeIndeed'
+
+    ; Delete any legacy standalone uninstaller
     Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
 
     ; Purge user AppData plugin configuration and database directories
