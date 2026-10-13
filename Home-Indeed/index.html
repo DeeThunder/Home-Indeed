@@ -1,177 +1,238 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Home Indeed is an OBS plugin for churches. Download the launch build and preview the app in OBS."
-    />
-    <meta name="robots" content="index, follow" />
-    <link rel="canonical" href="https://homeindeed.netlify.app/" />
-    <meta property="og:title" content="Home Indeed" />
-    <meta property="og:description" content="Home Indeed is an OBS plugin for churches. Download the launch build and preview the app in OBS." />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://homeindeed.netlify.app/" />
-    <meta property="og:image" content="https://homeindeed.netlify.app/assets/hi-logo.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Home Indeed" />
-    <meta name="twitter:description" content="Home Indeed is an OBS plugin for churches. Download the launch build and preview the app in OBS." />
-    <meta name="twitter:image" content="https://homeindeed.netlify.app/assets/hi-logo.png" />
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Home Indeed",
-        "url": "https://homeindeed.netlify.app/",
-        "description": "Home Indeed is an OBS plugin for churches. Download the launch build and preview the app in OBS."
-      }
-    </script>
-    <title>Home Indeed</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="page">
-      <header class="topbar">
-        <div class="topbar-inner">
-          <a class="brand" href="#top" aria-label="Home Indeed home">
-            <img src="assets/hi-logo.png" alt="Home Indeed logo" />
-            <span class="brand-mark">
-              <strong>Home Indeed</strong>
-            </span>
-          </a>
-        </div>
-      </header>
-
-      <main id="top">
-        <section class="hero">
-          <div class="container hero-grid">
-            <div>
-              <div class="eyebrow">Windows &middot; macOS &middot; Linux</div>
-              <h1>Home Indeed for OBS Studio.</h1>
-              <p class="hero-copy">
-                A church-focused OBS plugin that keeps sermon visuals,
-                scripture, and lyrics in the same workflow. Download the launch
-                build, then swap in your own website visuals as the release
-                grows.
-              </p>
-              <div class="hero-actions">
-                <a class="btn btn-primary" href="#downloads">
-                  Download Plugin
-                </a>
-              </div>
-              <div class="hero-meta">
-                <div class="meta-card">
-                  <strong>OBS ready</strong>
-                  <span>Built to live inside the broadcaster workflow.</span>
-                </div>
-                <div class="meta-card">
-                  <strong>Simple launch</strong>
-                  <span>No extra signup path, just the launch.</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="launch-art" aria-label="Hero image slot">
-              <div class="laptop-frame">
-                <div class="laptop-shell">
-                  <div class="laptop-screen">
-                      <img
-                          src="assets/Plugin screenshot.png"
-                          alt="Placeholder for OBS Studio screenshot"
-                        />
-                  </div>
-                </div>
-                <div class="laptop-base" aria-hidden="true"></div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="downloads">
-          <div class="container">
-            <div class="section-head">
-              <div class="section-kicker">Downloads</div>
-              <h2 class="section-title">Platform Builds</h2>
-              <p class="section-lead">
-                Click the buttons below to download the latest launch build for
-                your platform.
-              </p>
-            </div>
-
-            <div class="platform-grid">
-              <article class="platform-card">
-                <div class="platform-art">
-                  <div class="platform-icon platform-icon-windows" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img" aria-label="Windows logo">
-                      <path d="M3 5.5 10 4.5v7H3V5.5Zm8-1.2L21 3v8.5H11V4.3ZM3 12.5h7V20l-7-1v-6.5Zm8 0h10V21l-10-1.5v-7Z" fill="currentColor" />
-                    </svg>
-                  </div>
-                  <strong>Windows build</strong>
-                  <span>Native installer for the desktop release.</span>
-                </div>
-                <a
-                  class="btn btn-primary"
-                  href="https://github.com/DeeThunder/Home-Indeed/releases/download/1.1.0/home-indeed-1.1.0-windows-x64-Installer.exe"
-                  >Download for Windows</a
-                >
-              </article>
-
-              <article class="platform-card">
-                <div class="platform-art">
-                  <div class="platform-icon platform-icon-macos" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img" aria-label="Apple logo">
-                      <path d="M16.4 13.2c0-2 1.6-3 1.7-3.1-.9-1.3-2.3-1.5-2.8-1.6-1.2-.1-2.3.7-2.9.7-.6 0-1.5-.7-2.5-.7-1.3 0-2.5.8-3.2 2-1.4 2.4-.4 5.9 1 7.8.7.9 1.5 1.9 2.6 1.8 1 0 1.4-.6 2.6-.6 1.1 0 1.4.6 2.6.6 1.1 0 1.8-.9 2.5-1.8.8-1.1 1.1-2.2 1.1-2.3 0-.1-2.1-.8-2.1-2.8Zm-2.3-6.2c.5-.7.9-1.6.8-2.6-.8 0-1.7.5-2.2 1.2-.5.6-1 1.5-.9 2.4.9.1 1.7-.4 2.3-1Z" fill="currentColor" />
-                    </svg>
-                  </div>
-                  <strong>macOS build</strong>
-                  <span>Native package for Apple desktops and laptops.</span>
-                </div>
-                <a
-                  class="btn btn-primary"
-                  href="https://github.com/DeeThunder/Home-Indeed/releases/download/1.1.0/home-indeed-1.1.0-macos-universal.pkg"
-                  >Download for macOS</a
-                >
-              </article>
-
-              <article class="platform-card">
-                <div class="platform-art">
-                  <div class="platform-icon platform-icon-linux" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" role="img" aria-label="Linux logo">
-                      <path d="M12 3c-2.7 0-4.8 2.1-4.8 4.8 0 .8.2 1.5.5 2.2-.8 1-1.2 2.1-1.2 3.3 0 2.3 1.5 4 3.5 5.1.5.3.8.8.8 1.4 0 .7-.4 1.3-1 1.7 1.4.4 2.7.6 4.2.6s2.9-.2 4.2-.6c-.6-.4-1-.9-1-1.7 0-.6.3-1.1.8-1.4 2-1.1 3.5-2.8 3.5-5.1 0-1.2-.4-2.3-1.2-3.3.3-.7.5-1.4.5-2.2C16.8 5.1 14.7 3 12 3Z" fill="currentColor" />
-                      <circle cx="9.2" cy="9.1" r="0.8" fill="#050b14" />
-                      <circle cx="14.8" cy="9.1" r="0.8" fill="#050b14" />
-                    </svg>
-                  </div>
-                  <strong>Linux build</strong>
-                  <span>DEB and archive downloads for Linux users.</span>
-                </div>
-                <a
-                  class="btn btn-primary"
-                  href="https://github.com/DeeThunder/Home-Indeed/releases/download/1.1.0/home-indeed-1.1.0-x86_64-linux-gnu.deb"
-                  >Download for Linux</a
-                >
-              </article>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer>
-        <div class="container footer-inner">
-          <div>
-            <strong
-              style="display: block; color: var(--text); margin-bottom: 0.2rem"
-              >Home Indeed</strong
-            >
-            <span>Built for OBS Studio and church production teams.</span>
-          </div>
-          <div class="footer-links">
-            <a href="https://github.com/DeeThunder/Home-Indeed">GitHub</a>
-            <a href="mailto:info@deethundernexus.org">Support</a>
-          </div>
-        </div>
-      </footer>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="Home Indeed is a church-focused OBS Studio plugin for Bible passage browsing, lyrics and live overlay controls. Explore version 1.2.0 for Windows.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://homeindeed.netlify.app/">
+  <link rel="icon" type="image/png" href="assets/hi-logo.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Home Indeed">
+  <meta property="og:title" content="Home Indeed — Keep the focus on the message">
+  <meta property="og:description" content="A church-focused OBS Studio plugin for scripture, lyrics and live presentation controls.">
+  <meta property="og:url" content="https://homeindeed.netlify.app/">
+  <meta property="og:image" content="https://homeindeed.netlify.app/assets/hi-logo.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Home Indeed — Keep the focus on the message">
+  <meta name="twitter:description" content="A church-focused OBS Studio plugin for scripture, lyrics and live presentation controls.">
+  <meta name="twitter:image" content="https://homeindeed.netlify.app/assets/hi-logo.png">
+  <title>Home Indeed — Church Presentation Plugin for OBS Studio</title>
+  <link rel="preload" as="image" href="assets/Plugin%20screenshot.png">
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"Home Indeed",
+    "applicationCategory":"MultimediaApplication",
+    "operatingSystem":"Windows 10, Windows 11",
+    "softwareVersion":"1.2.0",
+    "description":"A church-focused OBS Studio plugin for scripture, lyrics and live presentation controls.",
+    "url":"https://homeindeed.netlify.app/",
+    "downloadUrl":"https://github.com/DeeThunder/Home-Indeed/releases/tag/v1.2.0",
+    "softwareRequirements":"OBS Studio and 64-bit Windows 10 or Windows 11. Check the release notes for current requirements.",
+    "author":{"@type":"Organization","name":"DeeThunder"}
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="announcement">
+    <div class="wrap announcement-inner">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span><strong>Version 1.2.0</strong> · Available for Windows 10/11 (64-bit)</span>
+      <a href="https://github.com/DeeThunder/Home-Indeed/releases/tag/v1.2.0" target="_blank" rel="noopener noreferrer">View release <span aria-hidden="true">↗</span></a>
     </div>
-  </body>
+  </div>
+
+  <header class="site-header">
+    <div class="wrap nav-wrap">
+      <a class="brand" href="#top" aria-label="Home Indeed home">
+        <img src="assets/hi-logo.png" alt="" width="42" height="42">
+        <span class="brand-copy"><strong>home<span>indeed</span></strong><small>CHURCH PRODUCTION TOOLKIT</small></span>
+      </a>
+      <button class="menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="site-nav">
+        <span></span><span></span>
+      </button>
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation">
+        <a href="#features">Features</a>
+        <a href="#demo">See it in action</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/DeeThunder/Home-Indeed" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+        <a class="nav-cta" href="#download">Get Home Indeed <span aria-hidden="true">→</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-glow glow-a" aria-hidden="true"></div><div class="hero-glow glow-b" aria-hidden="true"></div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <h1>Keep the focus on the <span>message.</span></h1>
+          <p class="hero-lead">Scripture, lyrics and live presentation controls — brought closer to the OBS Studio workflow your team already knows.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#download"><span aria-hidden="true">↓</span> Get Home Indeed <span class="button-arrow" aria-hidden="true">↗</span></a>
+            <a class="button button-quiet" href="#demo"><span class="play-icon" aria-hidden="true">▶</span> Watch the demo</a>
+          </div>
+          <div class="hero-proof">
+            <span><i aria-hidden="true">✓</i> OBS Studio plugin</span>
+            <span><i aria-hidden="true">✓</i> Windows 10 &amp; 11</span>
+          </div>
+          <p class="hero-note">Thoughtfully built for the team behind every smooth service.</p>
+        </div>
+        <div class="hero-visual">
+          <div class="visual-orbit orbit-one" aria-hidden="true"></div><div class="visual-orbit orbit-two" aria-hidden="true"></div>
+          <div class="app-window">
+            <div class="app-window-bar">
+              <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+              <span>HOME INDEED <b>·</b> OBS STUDIO</span>
+              <span class="app-badge"><i aria-hidden="true"></i> LIVE WORKFLOW</span>
+            </div>
+            <img src="assets/Plugin%20screenshot.png" alt="Home Indeed plugin dock shown inside OBS Studio" width="1917" height="927">
+          </div>
+          <div class="float-card float-scripture"><span class="float-symbol">✧</span><span><strong>Scripture, in reach</strong><small>Browse passages in your workflow</small></span></div>
+          <div class="float-card float-overlay"><span class="type-symbol">Aa</span><span><strong>Live overlay controls</strong><small>Keep visuals close at hand</small></span></div>
+          <div class="visual-caption"><span></span> Home Indeed running in OBS Studio</div>
+        </div>
+      </div>
+      <div class="wrap hero-bottom"><span>BUILT FOR THE MOMENTS THAT MATTER</span><div><b>Scripture</b><i></i><b>Live overlays</b><i></i><b>Church livestreams</b></div></div>
+    </section>
+
+    <section class="section features-section" id="features">
+      <div class="wrap">
+        <div class="section-heading centered">
+          <span class="section-label">A calmer control room</span>
+          <h2>Less switching. More <span>serving.</span></h2>
+          <p>Home Indeed is made for the people running the screens and streams — helping bring important presentation tasks into one familiar production environment.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card featured-card">
+            <div class="feature-top"><span class="feature-icon blue">⌕</span><span class="feature-index">01 / SCRIPTURE</span></div>
+            <h3>Find the passage. Keep the flow.</h3>
+            <p>Browse Bible books and chapters from the Home Indeed dock and work with supported translations while preparing what appears on screen.</p>
+            <div class="translation-pills" aria-label="Supported Bible translations"><span>KJV</span><span>ASV</span><span>BBE</span><span>WEB</span></div>
+            <div class="scripture-art" aria-hidden="true"><span>PSALM 23</span><strong>The Lord is my shepherd;</strong><em>I shall not want.</em><small>Psalm 23:1 · KJV</small></div>
+          </article>
+          <article class="feature-card">
+            <div class="feature-top"><span class="feature-icon violet">♫</span><span class="feature-index">02 / LYRICS</span></div>
+            <h3>Keep songs in the workflow.</h3>
+            <p>Use the included starter song library and lyrics workflow to support worship presentation. </p>
+            <div class="song-art" aria-hidden="true"><div class="waveform">▂ ▄ ▆ ▄ ▂ ▅ ▇ ▃ ▅ ▂ ▆ ▄ ▇</div><div><strong>Starter song library</strong><small>130 songs included in v1.2.0</small></div><span class="song-play">▶</span></div>
+          </article>
+          <article class="feature-card">
+            <div class="feature-top"><span class="feature-icon amber">▣</span><span class="feature-index">03 / LIVE VISUALS</span></div>
+            <h3>Stay close to the output.</h3>
+            <p>Work with live overlay controls and presentation tools from within OBS Studio, keeping production tasks easy to reach.</p>
+            <div class="overlay-art" aria-hidden="true"><div class="overlay-frame"><span>YOUR MESSAGE</span><small>Scripture · Worship · Word</small></div><div class="overlay-status"><i></i> Overlay preview</div></div>
+          </article>
+        </div>
+        <p class="feature-note"><strong>About experimental features:</strong> speech detection and automatic scripture or lyric matching are experimental. Always verify detected content before displaying it during a live service.</p>
+      </div>
+    </section>
+
+    <section class="demo-section" id="demo">
+      <div class="wrap demo-grid">
+        <div class="demo-copy">
+          <span class="section-label">Take a closer look</span>
+          <h2>See how Home Indeed fits into <span>your setup.</span></h2>
+          <ul class="demo-list"><li><span>✓</span> See the plugin in action</li><li><span>✓</span> Review what is available in v1.2.0</li><li><span>✓</span> Check setup details before service day</li></ul>
+          <a class="text-link" href="https://github.com/DeeThunder/Home-Indeed/releases/tag/v1.2.0" target="_blank" rel="noopener noreferrer">Explore the official release <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="video-card">
+          <div class="video-head"><span class="video-live"></div>
+          <video controls preload="metadata" poster="assets/Plugin%20screenshot.png" playsinline>
+            <source src="assets/Plugin%20demo.mp4" type="video/mp4">
+            Your browser does not support embedded video. <a href="assets/Plugin%20demo.mp4">Open the demo video</a>.
+          </video>
+          <div class="video-caption"><span class="video-caption-icon">▶</span><span><strong>Home Indeed in action</strong></span><span class="video-caption-arrow">↗</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workflow-section">
+      <div class="wrap workflow-grid">
+        <div class="workflow-copy">
+          <span class="section-label">A straightforward starting point</span>
+          <h2>Your church workflow, <span>with fewer detours.</span></h2>
+          <p>Home Indeed is built to work alongside OBS Studio, so your production team can prepare scripture and lyrics while keeping an eye on the scene and stream.</p>
+          <div class="steps">
+            <div class="step"><span class="step-number">01</span><div><h3>Get the current release</h3><p>Download the Windows installer from the official release page and read the included notes.</p></div></div>
+            <div class="step"><span class="step-number">02</span><div><h3>Set up your OBS workflow</h3><p>Install Home Indeed and follow the release-specific setup guidance for your OBS Studio environment.</p></div></div>
+            <div class="step"><span class="step-number">03</span><div><h3>Prepare and verify</h3><p>Use the available scripture, lyrics and overlay controls, then verify the output before going live.</p></div></div>
+          </div>
+          <a class="text-link" href="https://github.com/DeeThunder/Home-Indeed/releases/tag/v1.2.0" target="_blank" rel="noopener noreferrer">Read the v1.2.0 release notes <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="workflow-visual">
+          <div class="workflow-image"><img src="assets/Plugin%20screenshot.png" alt="Home Indeed dock and OBS Studio presentation interface" loading="lazy" width="1917" height="927"></div>
+          <div class="workflow-sticker"><span>HI</span><div><strong>Made for the team behind the stream.</strong><small>One service. Many moving parts.</small></div></div>
+          <div class="workflow-glow" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section" id="download">
+      <div class="wrap">
+        <div class="download-panel">
+          <div class="download-orb" aria-hidden="true"></div>
+          <div class="download-content">
+            <span class="section-label">Start with Home Indeed</span>
+            <h2>Ready for your next <span>service?</span></h2>
+            <p>Get the current release, review the installation notes, and see if Home Indeed fits your church's production setup.</p>
+            <div class="download-meta"><span class="version-pill"><i></i> VERSION 1.2.0</span><span>Windows 10 / 11 · 64-bit</span></div>
+            <a class="button button-primary download-button" href="https://github.com/DeeThunder/Home-Indeed/releases/download/v1.2.0/home-indeed-1.2.0-windows-x64-Installer.exe" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">↓</span> Get the Windows release <span class="button-arrow" aria-hidden="true">↗</span></a>
+            </div>
+          <div class="download-side">
+            <div class="file-top"><div class="file-icon"><span>EXE</span><b>↓</b></div><div><strong>Home Indeed</strong><small>Windows installer</small><em>v1.2.0 · x64</em></div></div>
+            <div class="file-divider"></div>
+            <div class="platform-row"><span class="platform-symbol windows-symbol">⊞</span><span><b>Windows</b><small>Available now</small></span><span class="platform-status available">Available</span></div>
+            <div class="platform-row muted-row"><span class="platform-symbol">◒</span><span><b>macOS</b><small>Builds paused</small></span><span class="platform-status">Paused</span></div>
+            <div class="platform-row muted-row"><span class="platform-symbol">◈</span><span><b>Linux</b><small>Builds paused</small></span><span class="platform-status">Paused</span></div>
+            <p class="platform-note">Windows is the supported release platform for v1.2.0. Check GitHub for the latest status.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section" id="faq">
+      <div class="wrap faq-grid">
+        <div class="faq-intro"><span class="section-label">Good to know</span><h2>Before you <span>get started.</span></h2><p>Quick answers to help you decide whether Home Indeed is right for your church setup.</p><a class="text-link" href="https://github.com/DeeThunder/Home-Indeed" target="_blank" rel="noopener noreferrer">Browse the project on GitHub <span aria-hidden="true">↗</span></a></div>
+        <div class="faq-list">
+          <details><summary>What is Home Indeed? <span aria-hidden="true">+</span></summary><p>Home Indeed is a native plugin for OBS Studio designed around church production tasks such as Bible passage browsing, lyrics and live overlay controls.</p></details>
+          <details><summary>Which operating systems are supported? <span aria-hidden="true">+</span></summary><p>Version 1.2.0 is available for 64-bit Windows 10 and Windows 11. macOS and Linux builds are currently paused; check the official release page for updates.</p></details>
+          <details><summary>Which Bible translations are included? <span aria-hidden="true">+</span></summary><p>The v1.2.0 release includes KJV, ASV, BBE and WEB. Refer to the release notes and in-app options for exact availability.</p></details>
+          <details><summary>Can Home Indeed automatically detect scripture or lyrics from speech? <span aria-hidden="true">+</span></summary><p>Speech detection and automatic matching are experimental. Treat suggestions as assistive, verify the passage or lyric, and do not rely on them as an error-free live automation system.</p></details>
+          <details><summary>Where can I get help or report a problem? <span aria-hidden="true">+</span></summary><p>Visit the Home Indeed GitHub repository to review documentation, release notes and available issue-reporting options.</p></details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-main">
+      <a class="brand footer-brand" href="#top" aria-label="Home Indeed home"><img src="assets/hi-logo.png" alt="" width="38" height="38"><span class="brand-copy"><strong>home<span>indeed</span></strong><small>CHURCH PRODUCTION TOOLKIT</small></span></a>
+      <p>Built for OBS Studio and the people serving behind the scenes.</p>
+      <div class="footer-links"><a href="https://github.com/DeeThunder/Home-Indeed" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a><a href="mailto:info@deethundernexus.org">Support</a></div>
+    </div>
+    <div class="wrap footer-bottom"><span>© <span id="year">2026</span> Home Indeed. All rights reserved.</span><a href="#top">Back to top ↑</a></div>
+  </footer>
+  <script>
+    const menuButton = document.querySelector('.menu-toggle');
+    const nav = document.querySelector('#site-nav');
+    menuButton?.addEventListener('click', () => {
+      const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
+      menuButton.setAttribute('aria-expanded', String(!isOpen));
+      menuButton.setAttribute('aria-label', isOpen ? 'Open navigation menu' : 'Close navigation menu');
+      nav.classList.toggle('is-open', !isOpen);
+    });
+    nav?.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
+      nav.classList.remove('is-open');
+      menuButton?.setAttribute('aria-expanded', 'false');
+      menuButton?.setAttribute('aria-label', 'Open navigation menu');
+    }));
+    document.querySelector('#year').textContent = new Date().getFullYear();
+  </script>
+</body>
 </html>
