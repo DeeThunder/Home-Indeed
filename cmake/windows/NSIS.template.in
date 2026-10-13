@@ -792,17 +792,24 @@ Function un.onInit
   Pop $1
   StrCmp $1 "Admin" 0 +3
     SetShellVarContext all
-    ;MessageBox MB_OK 'User "$0" is in the Admin group'
     Goto done
   StrCmp $1 "Power" 0 +3
     SetShellVarContext all
-    ;MessageBox MB_OK 'User "$0" is in the Power Users group'
     Goto done
 
   noLM:
-    ;Get installation folder from registry if available
 
   done:
+    ; Read the actual installation folder (C:\Program Files\obs-studio) from registry
+    ReadRegStr $0 SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "InstallLocation"
+    StrCmp $0 "" 0 set_instdir
+    ReadRegStr $0 SHCTX "Software\@CPACK_PACKAGE_VENDOR@\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" ""
+    StrCmp $0 "" 0 set_instdir
+    ; Default fallback to 64-bit Program Files obs-studio
+    StrCpy $0 "$PROGRAMFILES64\obs-studio"
+
+  set_instdir:
+    StrCpy $INSTDIR $0
 
 FunctionEnd
 
@@ -1007,35 +1014,51 @@ Function MaintenancePageLeave
       StrCpy $1 $1 -1
       Goto loop_trim
     trim_done:
-      IfFileExists $1 uninst_run uninst_failed
+      IfFileExists $1 uninst_run uninst_cleanup
 
 uninst_run:
     ; Terminate running OBS instance so files are unlocked
     nsExec::Exec 'taskkill /F /IM obs64.exe'
 
-    ; Execute silent uninstallation
-    GetFullPathName $2 "$1\.."
-    ExecWait '"$1" /S _?=$2'
+    ; Execute silent uninstallation with _?=$INSTDIR (C:\Program Files\obs-studio)
+    ExecWait '"$1" /S _?=$INSTDIR'
     IfErrors 0 uninst_cleanup
-
     ExecWait '"$1" /S'
-    IfErrors uninst_failed
 
 uninst_cleanup:
+    ; Guarantee complete removal of plugin binaries and directories from $INSTDIR
+    Delete "$INSTDIR\obs-plugins\64bit\home-indeed.dll"
+    Delete "$INSTDIR\obs-plugins\64bit\home-indeed.pdb"
+    Delete "$INSTDIR\obs-plugins\64bit\Home-Indeed.dll"
+    Delete "$INSTDIR\obs-plugins\64bit\Home-Indeed.pdb"
+    RMDir /r "$INSTDIR\data\obs-plugins\home-indeed"
+    RMDir /r "$INSTDIR\data\obs-plugins\Home-Indeed"
+    RMDir /r "$INSTDIR\doc\home-indeed"
+    RMDir /r "$INSTDIR\home-indeed"
+
+    ; Delete runtime Vosk DLLs in bin/64bit
+    Delete "$INSTDIR\bin\64bit\libvosk.dll"
+    Delete "$INSTDIR\bin\64bit\libgcc_s_seh-1.dll"
+    Delete "$INSTDIR\bin\64bit\libstdc++-6.dll"
+    Delete "$INSTDIR\bin\64bit\libwinpthread-1.dll"
+
     ; Clean up uninstaller file and folder from Common Files
     Delete "$COMMONFILES64\HomeIndeed\Setup.exe"
     RMDir "$COMMONFILES64\HomeIndeed"
     Delete "$INSTDIR\Uninstall-HomeIndeed.exe"
 
+    ; Purge user AppData plugin configuration and database directories
+    RMDir /r "$APPDATA\obs-studio\plugin_config\home-indeed"
+    RMDir /r "$APPDATA\obs64\HomeIndeed"
+    RMDir /r "$APPDATA\HomeIndeed"
+    RMDir /r "$LOCALAPPDATA\HomeIndeed"
+
     ; Clean up registry keys
     DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HomeIndeed"
     DeleteRegKey HKCU "Software\HomeIndeed"
+    DeleteRegKey SHCTX "Software\Home Indeed Team\HomeIndeed"
 
     MessageBox MB_OK|MB_ICONINFORMATION "@CPACK_NSIS_PACKAGE_NAME@ has been successfully removed from this computer."
-    Quit
-
-uninst_failed:
-    MessageBox MB_OK|MB_ICONSTOP "Uninstallation could not be completed."
     Quit
   ${EndIf}
 FunctionEnd
