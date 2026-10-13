@@ -66,7 +66,7 @@ HomeInDock::HomeInDock(QWidget *parent) : QWidget(parent) {
     if (mod_lyrics) bfree(mod_lyrics);
 
     if (!installedLyricsPath.isEmpty() && QFileInfo::exists(installedLyricsPath)) {
-        if (!QFileInfo::exists(lyricsPath) || QFileInfo(lyricsPath).size() < 40000) {
+        if (!QFileInfo::exists(lyricsPath) || QFileInfo(lyricsPath).size() < QFileInfo(installedLyricsPath).size()) {
             QFile::remove(lyricsPath);
             QFile::copy(installedLyricsPath, lyricsPath);
         }

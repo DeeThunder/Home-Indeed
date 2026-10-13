@@ -825,7 +825,7 @@ Leaning on the everlasting arms."""
     ),
     (
         "Fairest Lord Jesus",
-        "Münster Gesangbuch",
+        "Munster Gesangbuch",
         """Fairest Lord Jesus, Ruler of all nature,
 O Thou of God and man the Son,
 Thee will I cherish, Thee will I honor,
@@ -1548,7 +1548,7 @@ When I am dry You fill my cup,
 You are my all in all."""
     ),
     (
-        "O Praise the Name (Anástasis)",
+        "O Praise the Name (Anastasis)",
         "Hillsong Worship",
         """I cast my mind to Calvary
 Where Jesus bled and died for me.
@@ -2571,7 +2571,7 @@ You're everything to me!"""
     ),
     (
         "My Tribute (To God Be the Glory)",
-        "Andraé Crouch",
+        "Andrae Crouch",
         """How can I say thanks
 For the things You have done for me?
 Things so undeserved,

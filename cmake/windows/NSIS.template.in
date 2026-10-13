@@ -923,7 +923,7 @@ Function .onInit
   StrCmp $0 "" inst
 
   MessageBox MB_YESNOCANCEL|MB_ICONQUESTION \
-  "@CPACK_NSIS_PACKAGE_NAME@ is already installed on your computer.$\n$\nWhat would you like to do?$\n$\n• Click 'Yes' to Repair / Reinstall (reinstalls and overwrites all plugin files)$\n• Click 'No' to Remove / Uninstall (completely removes Home Indeed from OBS and your PC)$\n• Click 'Cancel' to exit setup." \
+  "@CPACK_NSIS_PACKAGE_NAME@ is already installed on your computer.$\n$\nWhat would you like to do?$\n$\n- Click 'Yes' to Repair / Reinstall (reinstalls and overwrites all plugin files)$\n- Click 'No' to Remove / Uninstall (completely removes Home Indeed from OBS and your PC)$\n- Click 'Cancel' to exit setup." \
   /SD IDYES IDYES repair IDNO remove
   Abort
 

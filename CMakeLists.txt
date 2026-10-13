@@ -258,6 +258,7 @@ if(WIN32)
 
     ; Clean up legacy standalone home-indeed folder if left over from older builds
     RMDir /r '$INSTDIR\\\\home-indeed'
+    RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
 
     ; Register standalone entry in Windows Control Panel / Apps & Features
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayName' 'Home Indeed OBS Plugin'
@@ -296,6 +297,7 @@ if(WIN32)
 
     ; Purge user AppData plugin configuration and database directories
     RMDir /r '$APPDATA\\\\obs-studio\\\\plugin_config\\\\home-indeed'
+    RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
     RMDir /r '$APPDATA\\\\HomeIndeed'
     RMDir /r '$LOCALAPPDATA\\\\HomeIndeed'
 
