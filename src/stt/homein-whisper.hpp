@@ -15,6 +15,8 @@ public:
     bool Initialize(const std::string& model_path) override;
     void Start(TranscriptCallback callback) override;
     void Stop() override;
+    void SetLanguage(const std::string& language_code) { language = language_code; }
+    void SetPerformanceMode(const std::string& mode);
 
     void SetPaused(bool paused) override { is_paused = paused; }
     bool IsPaused() const override { return is_paused; }
@@ -33,6 +35,7 @@ private:
     TranscriptCallback on_transcript;
 
     std::string model_file;
+    std::string language = "en";
     std::string last_emitted_text;
     int n_threads = 4;
 };

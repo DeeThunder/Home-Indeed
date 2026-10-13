@@ -2,8 +2,11 @@
 
 HomeInQueueTab::HomeInQueueTab(QWidget *parent) : QWidget(parent) {
     QVBoxLayout* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     queue_list = new QListWidget();
+    queue_list->setMinimumHeight(60);
     layout->addWidget(queue_list);
 
     QHBoxLayout* controls = new QHBoxLayout();

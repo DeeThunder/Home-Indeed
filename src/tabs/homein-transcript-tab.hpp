@@ -16,6 +16,9 @@ public:
     // Allows the Main Dock to inject text from the AI into this UI
     void AppendTranscriptText(const QString& text);
     void SetAIStatus(const QString& status, const QString& colorHex);
+    void UpdateAudioLevel(int level) {
+        if (audio_level_bar) audio_level_bar->setValue(level);
+    }
 
 signals:
     // When the user clicks the Mic, it tells the Main Dock to turn on the AI
@@ -25,6 +28,7 @@ signals:
 private:
     QPushButton* mic_btn;
     QPushButton* pause_btn;
+    QPushButton* clear_btn;
     QLabel* ai_status_label;
     QProgressBar* audio_level_bar;
     QTextEdit* transcript_box;

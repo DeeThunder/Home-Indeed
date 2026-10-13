@@ -85,8 +85,16 @@ HomeInRenderer::~HomeInRenderer() {
 void HomeInRenderer::SetText(const std::string& text) {
     std::lock_guard<std::mutex> lock(text_mutex);
     if (current_text != text) {
-        pending_text  = text;
-        is_fading_out = true;
+        if (current_text.empty() || current_alpha <= 0.0f) {
+            current_text  = text;
+            pending_text.clear();
+            is_fading_out = false;
+            current_alpha = 1.0f;
+            dirty         = true;
+        } else {
+            pending_text  = text;
+            is_fading_out = true;
+        }
     }
 }
 
@@ -97,10 +105,8 @@ void HomeInRenderer::UpdateSettings(const OverlaySettings& new_settings) {
 }
 
 // FIX #14: PrepareTexture() runs Qt QPainter on the Qt main thread (called
-// from the dock's level_timer). It pre-renders the QImage with alpha already
+// from the dock's timer or direct push). It pre-renders the QImage with alpha already
 // baked in for the current fade level, then signals the GPU upload via image_ready.
-// This prevents calling QPainter from OBS's graphics/render thread (UB on some
-// platforms, blank textures on others).
 void HomeInRenderer::PrepareTexture() {
     std::string     text_to_draw;
     OverlaySettings draw_settings;
@@ -112,6 +118,10 @@ void HomeInRenderer::PrepareTexture() {
         text_to_draw  = current_text;
         draw_settings = settings;
         alpha         = current_alpha;
+        if (alpha <= 0.0f && !text_to_draw.empty()) {
+            alpha = 1.0f;
+            current_alpha = 1.0f;
+        }
     }
 
     QImage image(width, height, QImage::Format_ARGB32_Premultiplied);
@@ -137,16 +147,6 @@ void HomeInRenderer::PrepareTexture() {
             bodyStr = qFull.mid(firstNL + 1);
         }
 
-        // Extract verse number (Bible only)
-        QString verseNum = "";
-        if (!isLyrics && !bodyStr.isEmpty() && bodyStr[0].isDigit()) {
-            int spaceIdx = bodyStr.indexOf(' ');
-            if (spaceIdx != -1) {
-                verseNum = bodyStr.left(spaceIdx);
-                bodyStr = bodyStr.mid(spaceIdx + 1);
-            }
-        }
-
         // DEEP CLEAN: Remove any embedded superscript markers from the DB text itself
         static QRegularExpression superMarkers("[\\x{2070}-\\x{2079}\\x{00B9}\\x{00B2}\\x{00B3}]");
         bodyStr.remove(superMarkers);
@@ -170,14 +170,33 @@ void HomeInRenderer::PrepareTexture() {
             if (colorStr != "black") colorStr = "white"; 
             
             QColor textColor = (colorStr == "black") ? Qt::black : Qt::white;
+
+            // Draw text shadow / outline if enabled
+            if (draw_settings.text_shadow) {
+                QColor shadowColor = (colorStr == "black") ? QColor(255, 255, 255, a8) : QColor(0, 0, 0, (int)(a8 * 0.85f));
+                painter.setPen(shadowColor);
+                painter.drawText(r.translated(2, 2), flags, text);
+                painter.drawText(r.translated(-1, -1), flags, text);
+            }
+
             painter.setPen(QColor(textColor.red(), textColor.green(), textColor.blue(), a8));
             painter.drawText(r, flags, text);
         };
 
         // Layout Constants
-        int margin = 80;
+        int margin = draw_settings.margin > 0 ? draw_settings.margin : 80;
         int area_h = (int)(height * 0.40f); 
-        QRect contentRect(margin, (int)height - area_h - 40, (int)width - margin * 2, area_h);
+        int bottom_offset = draw_settings.lower_third_offset >= 0 ? draw_settings.lower_third_offset : 40;
+        QRect contentRect(margin, (int)height - area_h - bottom_offset, (int)width - margin * 2, area_h);
+
+        // Draw background bounding box if enabled
+        if (draw_settings.show_background && draw_settings.bg_opacity > 0) {
+            int bg_a = (int)((draw_settings.bg_opacity / 255.0f) * alpha * 255.0f);
+            painter.setBrush(QBrush(QColor(15, 15, 18, bg_a)));
+            painter.setPen(Qt::NoPen);
+            QRect bgRect = contentRect.adjusted(-24, -12, 24, 12);
+            painter.drawRoundedRect(bgRect, 16.0, 16.0);
+        }
         
         if (isLyrics) {
             int calculatedSize = (int)(draw_settings.base_font_size * 1.3f);
@@ -185,42 +204,24 @@ void HomeInRenderer::PrepareTexture() {
             lyricFont.setBold(true);
             drawWithOutline(contentRect, bodyStr, lyricFont);
         } else {
-            // Bible Mode: FIXED-LEFT Layout
+            // Bible Mode
             QRect bodyRect = contentRect;
-            bodyRect.setHeight((int)(contentRect.height() * 0.85f));
+            bodyRect.setHeight((int)(contentRect.height() * 0.82f));
             
             QRect refRect = contentRect;
-            refRect.setTop(bodyRect.bottom() - 20);
+            refRect.setTop(bodyRect.bottom() - 10);
 
             int calculatedBodySize = (int)(draw_settings.base_font_size * 1.2f);
             QFont bodyFont(draw_settings.font_family, calculatedBodySize);
             bodyFont.setBold(true);
 
             if (!bodyStr.isEmpty()) {
-                if (!verseNum.isEmpty()) {
-                    // 1. Draw Verse Number FIXED TO LEFT
-                    QFont superFont(draw_settings.font_family, (int)(calculatedBodySize * 0.7f));
-                    superFont.setBold(true);
-                    
-                    // Extreme Left Margin & High Elevation
-                    QRect superRect = bodyRect;
-                    superRect.setWidth(150); 
-                    // Move it 80px left and 70% of font size up
-                    superRect.translate(-80, -(int)(calculatedBodySize * 0.7f));
-                    
-                    drawWithOutline(superRect, verseNum, superFont, Qt::AlignLeft | Qt::AlignTop);
-                    
-                    // 2. Draw Main Body using the user's selected alignment (Center, Left, Right)
-                    drawWithOutline(bodyRect, bodyStr, bodyFont);
-                } else {
-                    drawWithOutline(bodyRect, bodyStr, bodyFont);
-                }
+                drawWithOutline(bodyRect, bodyStr, bodyFont);
             }
             
             if (!refStr.isEmpty()) {
-                QFont refFont(draw_settings.font_family, (int)(draw_settings.base_font_size * 0.7f));
+                QFont refFont(draw_settings.font_family, (int)(draw_settings.base_font_size * 0.75f));
                 refFont.setBold(true);
-                refFont.setItalic(true);
                 drawWithOutline(refRect, refStr, refFont);
             }
         }
@@ -286,6 +287,11 @@ void HomeInRenderer::Render(gs_effect_t* effect) {
             current_alpha -= fade_speed;
             dirty = true;
         }
+    }
+
+    // Safety check: if texture has not been prepared yet but text is active, prepare it immediately
+    if (!texture && !current_text.empty()) {
+        PrepareTexture();
     }
 
     // GPU upload (safe here — Qt paint already done in PrepareTexture)

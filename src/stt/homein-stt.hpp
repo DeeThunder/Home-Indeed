@@ -4,6 +4,7 @@
 
 // A clean enum to track all available engines
 enum class STTEngineType {
+    AUTO_LOCAL,
     WHISPER_LOCAL,
     VOSK_LOCAL,
     DEEPGRAM_CLOUD

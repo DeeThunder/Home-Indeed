@@ -10,7 +10,7 @@
 !/tools
 !/tests
 !/vendor
-!/Home-Indeed-Waitlist
+!/Home-Indeed
 !.clang-format
 !.gersemirc
 !.gitignore

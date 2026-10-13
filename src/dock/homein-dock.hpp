@@ -1,6 +1,7 @@
 #pragma once
 #include <QWidget>
 #include <QTabWidget>
+#include <QTimer>
 #include <memory>
 #include <thread>
 
@@ -55,4 +56,5 @@ private:
     std::shared_ptr<TranscriptQueue> transcript_queue;
     std::thread detection_thread;
     std::atomic<bool> is_running{false};
+    QTimer* render_timer = nullptr;
 };
