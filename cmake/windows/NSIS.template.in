@@ -696,6 +696,9 @@ Section "-Core installation"
   Push "UninstallString"
   Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\""
   Call ConditionalAddToRegistry
+  Push "QuietUninstallString"
+  Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\" /S"
+  Call ConditionalAddToRegistry
   Push "ModifyPath"
   Push "$\"$COMMONFILES64\HomeIndeed\Setup.exe$\""
   Call ConditionalAddToRegistry
@@ -703,10 +706,10 @@ Section "-Core installation"
   Push "$INSTDIR"
   Call ConditionalAddToRegistry
   Push "NoModify"
-  Push "0"
+  Push "1"
   Call ConditionalAddToRegistry
   Push "NoRepair"
-  Push "0"
+  Push "1"
   Call ConditionalAddToRegistry
 
   ; Optional registration
@@ -980,19 +983,54 @@ Function MaintenancePageLeave
   ${NSD_GetState} $RadioRemove $0
   ${If} $0 == ${BST_CHECKED}
     ; User selected Remove!
-    ; Strip quotes from uninstaller path if present
-    StrCpy $2 $ExistingUninstaller 1 0
-    StrCmp $2 "$\"" 0 +2
-    StrCpy $ExistingUninstaller $ExistingUninstaller "" 1
-    StrCpy $2 $ExistingUninstaller 1 -1
-    StrCmp $2 "$\"" 0 +2
-    StrCpy $ExistingUninstaller $ExistingUninstaller -1
+    ; Check known uninstaller locations first
+    StrCpy $1 "$COMMONFILES64\HomeIndeed\Setup.exe"
+    IfFileExists $1 uninst_run
+
+    StrCpy $1 "$INSTDIR\Uninstall-HomeIndeed.exe"
+    IfFileExists $1 uninst_run
+
+    ; Fallback: clean $ExistingUninstaller of quotes and semicolons
+    StrCpy $1 $ExistingUninstaller
+    loop_trim:
+      StrCpy $2 $1 1 0
+      StrCmp $2 "$\"" trim_char 0
+      StrCmp $2 ";" trim_char 0
+      StrCpy $2 $1 1 -1
+      StrCmp $2 "$\"" trim_char_end 0
+      StrCmp $2 ";" trim_char_end 0
+      Goto trim_done
+    trim_char:
+      StrCpy $1 $1 "" 1
+      Goto loop_trim
+    trim_char_end:
+      StrCpy $1 $1 -1
+      Goto loop_trim
+    trim_done:
+      IfFileExists $1 uninst_run uninst_failed
+
+uninst_run:
+    ; Terminate running OBS instance so files are unlocked
+    nsExec::Exec 'taskkill /F /IM obs64.exe'
 
     ; Execute silent uninstallation
-    ExecWait '"$ExistingUninstaller" /S'
-    IfErrors uninst_failed uninst_success
+    GetFullPathName $2 "$1\.."
+    ExecWait '"$1" /S _?=$2'
+    IfErrors 0 uninst_cleanup
 
-uninst_success:
+    ExecWait '"$1" /S'
+    IfErrors uninst_failed
+
+uninst_cleanup:
+    ; Clean up uninstaller file and folder from Common Files
+    Delete "$COMMONFILES64\HomeIndeed\Setup.exe"
+    RMDir "$COMMONFILES64\HomeIndeed"
+    Delete "$INSTDIR\Uninstall-HomeIndeed.exe"
+
+    ; Clean up registry keys
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HomeIndeed"
+    DeleteRegKey HKCU "Software\HomeIndeed"
+
     MessageBox MB_OK|MB_ICONINFORMATION "@CPACK_NSIS_PACKAGE_NAME@ has been successfully removed from this computer."
     Quit
 
@@ -1010,10 +1048,20 @@ FunctionEnd
 
 Function .onInit
   ; Detect existing installation
+  StrCpy $IsInstalled "0"
   ReadRegStr $ExistingUninstaller HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\@CPACK_PACKAGE_INSTALL_REGISTRY_KEY@" "UninstallString"
-  StrCmp $ExistingUninstaller "" not_installed
+  StrCmp $ExistingUninstaller "" check_files
     StrCpy $IsInstalled "1"
     Goto inst
+
+check_files:
+  IfFileExists "$COMMONFILES64\HomeIndeed\Setup.exe" 0 +3
+    StrCpy $IsInstalled "1"
+    Goto inst
+  IfFileExists "$INSTDIR\obs-plugins\64bit\home-indeed.dll" 0 not_installed
+    StrCpy $IsInstalled "1"
+    Goto inst
+
 not_installed:
     StrCpy $IsInstalled "0"
     Goto inst

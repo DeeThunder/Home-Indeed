@@ -260,18 +260,6 @@ if(WIN32)
     Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
     RMDir /r '$INSTDIR\\\\home-indeed'
     RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
-
-    ; Register standalone entry in Windows Control Panel / Apps & Features
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayName' 'Home Indeed OBS Plugin'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayVersion' '${_version}'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'Publisher' 'Home Indeed Team'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'UninstallString' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\"'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'ModifyPath' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\"'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'QuietUninstallString' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\" /S'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayIcon' '\"$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe\",0'
-    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'InstallLocation' '$INSTDIR'
-    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoModify' 0
-    WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoRepair' 0
   ")
 
   # Recursive deep cleanup on uninstallation
