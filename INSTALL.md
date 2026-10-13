@@ -1,29 +1,21 @@
 # Home Indeed Installation
 
-Home Indeed is an OBS Studio plugin. Install OBS Studio first, then use the installer for your operating system.
+Home Indeed is an OBS Studio plugin. Install **OBS Studio** first, then download and run the installer.
 
-## Windows
+## Windows (Supported & Tested)
 
-Run `home-indeed-<version>-windows-x64-Installer.exe` and follow the prompts.
+1. Download the Windows installer: [home-indeed-1.2.0-windows-x64-Installer.exe](https://github.com/DeeThunder/Home-Indeed/releases/download/v1.2.0/home-indeed-1.2.0-windows-x64-Installer.exe).
+2. Ensure **OBS Studio** is closed before installing.
+3. Run `home-indeed-1.2.0-windows-x64-Installer.exe` and follow the on-screen prompts.
+4. The installer automatically detects your OBS Studio installation, places plugin binaries and model data in the proper directories, and registers clean maintenance uninstallation.
+5. If Home Indeed is already installed on your PC, running the installer gives you the option to **Repair** (reinstall and replace corrupted files) or **Remove** (completely uninstall).
+6. Launch OBS Studio and navigate to **Docks ➔ Home Indeed**.
 
-The installer places the plugin files under the OBS Studio plugin directory. Restart OBS Studio after installation.
+## macOS & Linux (Paused for v1.2.0)
 
-## macOS
+> [!NOTE]
+> CI builds and packages for macOS and Linux/Ubuntu are temporarily paused for the v1.2.0 milestone while core features are stabilized and validated on Windows. Multi-platform builds will be re-enabled in a subsequent release.
 
-Open `home-indeed-<version>-macos-universal.pkg` and follow the installer prompts.
+## Verify Installation
 
-If macOS blocks the package because it is unsigned, open System Settings, go to Privacy & Security, and allow the package from there. Restart OBS Studio after installation.
-
-## Ubuntu
-
-Install the Debian package with:
-
-```bash
-sudo apt install ./home-indeed-<version>-x86_64-linux-gnu.deb
-```
-
-Restart OBS Studio after installation.
-
-## Verify
-
-Open OBS Studio and check that Home Indeed loads in the OBS interface. If OBS was open during installation, close and reopen it.
+Open OBS Studio. You should see the **Home Indeed** dock available under **Docks ➔ Home Indeed**. If OBS Studio was running during installation, restart OBS Studio to load the plugin.
