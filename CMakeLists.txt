@@ -123,6 +123,7 @@ target_sources(
     src/stt/homein-vosk.cpp
     src/stt/homein-deepgram.cpp
     src/dock/homein-dock.cpp
+    src/dock/homein-downloader.cpp
     src/tabs/homein-transcript-tab.cpp
     src/tabs/homein-bible-tab.cpp
     src/tabs/homein-lyrics-tab.cpp
@@ -232,16 +233,72 @@ install(
 
 if(WIN32)
   set(CPACK_GENERATOR "NSIS;ZIP")
+  set(CPACK_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/windows")
   set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
   set(CPACK_PACKAGE_INSTALL_DIRECTORY "obs-studio")
+  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "HomeIndeed")
+  set(CPACK_NSIS_REQUEST_EXECUTION_LEVEL "admin")
   if(EXISTS "${CMAKE_SOURCE_DIR}/installer-logo.ico")
     set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/installer-logo.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/installer-logo.ico")
   else()
     message(WARNING "installer-logo.ico was not found; NSIS will use its default installer icon.")
   endif()
   set(CPACK_NSIS_PACKAGE_NAME "Home Indeed OBS Plugin")
   set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${_version}-windows-x64-Installer")
+  set(CPACK_NSIS_UNINSTALL_NAME "Uninstall-HomeIndeed")
   set(CPACK_NSIS_MODIFY_PATH OFF)
+
+  # Check if OBS is running during installation and register in Windows Control Panel
+  set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
+    nsExec::Exec 'tasklist /fi \\\"IMAGENAME eq obs64.exe\\\" | find /i \\\"obs64.exe\\\"'
+    Pop $0
+    StrCmp $0 '0' 0 +2
+      MessageBox MB_OK|MB_ICONEXCLAMATION 'OBS Studio is running. Please close OBS Studio before continuing installation.'
+
+    ; Clean up legacy standalone files if left over from older builds
+    Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
+    RMDir /r '$INSTDIR\\\\home-indeed'
+    RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
+  ")
+
+  # Recursive deep cleanup on uninstallation
+  set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS "
+    ; Terminate running OBS instance to unlock plugin files
+    nsExec::Exec 'taskkill /F /IM obs64.exe'
+
+    ; Delete plugin binary and data directories
+    Delete '$INSTDIR\\\\obs-plugins\\\\64bit\\\\home-indeed.dll'
+    Delete '$INSTDIR\\\\obs-plugins\\\\64bit\\\\home-indeed.pdb'
+    Delete '$INSTDIR\\\\obs-plugins\\\\64bit\\\\Home-Indeed.dll'
+    Delete '$INSTDIR\\\\obs-plugins\\\\64bit\\\\Home-Indeed.pdb'
+    RMDir /r '$INSTDIR\\\\data\\\\obs-plugins\\\\home-indeed'
+    RMDir /r '$INSTDIR\\\\data\\\\obs-plugins\\\\Home-Indeed'
+    RMDir /r '$INSTDIR\\\\home-indeed'
+
+    ; Delete runtime Vosk DLLs in bin/64bit
+    Delete '$INSTDIR\\\\bin\\\\64bit\\\\libvosk.dll'
+    Delete '$INSTDIR\\\\bin\\\\64bit\\\\libgcc_s_seh-1.dll'
+    Delete '$INSTDIR\\\\bin\\\\64bit\\\\libstdc++-6.dll'
+    Delete '$INSTDIR\\\\bin\\\\64bit\\\\libwinpthread-1.dll'
+
+    ; Delete uninstaller and maintenance folder in Common Files
+    Delete '$COMMONFILES64\\\\HomeIndeed\\\\Setup.exe'
+    RMDir '$COMMONFILES64\\\\HomeIndeed'
+
+    ; Delete any legacy standalone uninstaller
+    Delete '$INSTDIR\\\\Uninstall-HomeIndeed.exe'
+
+    ; Purge user AppData plugin configuration and database directories
+    RMDir /r '$APPDATA\\\\obs-studio\\\\plugin_config\\\\home-indeed'
+    RMDir /r '$APPDATA\\\\obs64\\\\HomeIndeed'
+    RMDir /r '$APPDATA\\\\HomeIndeed'
+    RMDir /r '$LOCALAPPDATA\\\\HomeIndeed'
+
+    ; Delete Windows registry configuration and Uninstall entry
+    DeleteRegKey HKCU 'Software\\\\HomeIndeed'
+    DeleteRegKey HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed'
+  ")
 elseif(APPLE)
   set(CPACK_GENERATOR "productbuild;ZIP")
 elseif(UNIX)
@@ -250,3 +307,53 @@ elseif(UNIX)
 endif()
 
 include(CPack)
+
+# ==========================================================
+# Testing & CTest Integration
+# ==========================================================
+option(BUILD_TESTING "Build the testing tree." ON)
+if(BUILD_TESTING)
+  enable_testing()
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    URL "https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip"
+  )
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(googletest)
+
+  # 1. test-ref-parser
+  add_executable(test-ref-parser
+    tests/test-ref-parser.cpp
+    src/detection/homein-ref-parser.cpp)
+  target_include_directories(test-ref-parser PRIVATE src)
+  target_link_libraries(test-ref-parser PRIVATE GTest::gtest_main)
+  add_test(NAME test-ref-parser COMMAND test-ref-parser)
+
+  # 2. test-lyrics-db
+  add_executable(test-lyrics-db
+    tests/test-lyrics-db.cpp
+    src/database/homein-lyrics-db.cpp
+    vendor/sqlite3/sqlite3.c)
+  target_include_directories(test-lyrics-db PRIVATE src vendor/sqlite3)
+  target_compile_definitions(test-lyrics-db PRIVATE SQLITE_ENABLE_FTS5=1 HOMEIN_TESTING=1)
+  target_link_libraries(test-lyrics-db PRIVATE GTest::gtest_main)
+  add_test(NAME test-lyrics-db COMMAND test-lyrics-db)
+
+  # 3. test-database
+  add_executable(test-database
+    tests/test-database.cpp
+    src/database/homein-db.cpp
+    vendor/sqlite3/sqlite3.c)
+  target_include_directories(test-database PRIVATE src vendor/sqlite3)
+  target_compile_definitions(test-database PRIVATE SQLITE_ENABLE_FTS5=1 HOMEIN_TESTING=1)
+  target_link_libraries(test-database PRIVATE GTest::gtest_main)
+  add_test(NAME test-database COMMAND test-database)
+
+  # 4. test-resampler
+  add_executable(test-resampler
+    tests/test-resampler.cpp)
+  target_include_directories(test-resampler PRIVATE src/audio)
+  target_link_libraries(test-resampler PRIVATE GTest::gtest_main)
+  add_test(NAME test-resampler COMMAND test-resampler)
+endif()

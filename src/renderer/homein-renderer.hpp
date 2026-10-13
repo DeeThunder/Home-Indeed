@@ -9,11 +9,16 @@
 #include <QFont>
 
 struct OverlaySettings {
-    Qt::Alignment alignment    = Qt::AlignCenter;
-    bool          full_screen  = false;
-    QString       font_family  = "Arial";
-    int           base_font_size = 48;
-    QString       font_color   = "white";
+    Qt::Alignment alignment          = Qt::AlignCenter;
+    bool          full_screen        = false;
+    QString       font_family        = "Arial";
+    int           base_font_size     = 48;
+    QString       font_color         = "white";
+    bool          text_shadow        = true;
+    bool          show_background    = true;
+    int           bg_opacity         = 180; // 0 - 255
+    int           margin             = 80;  // side margin in pixels
+    int           lower_third_offset = 40;  // bottom offset in pixels
 };
 
 class HomeInRenderer {

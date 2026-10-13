@@ -1,6 +1,14 @@
 #include "homein-db.hpp"
+#ifdef HOMEIN_TESTING
+#define LOG_INFO 0
+#define LOG_WARNING 1
+#define LOG_ERROR 2
+#define blog(level, ...) do {} while (0)
+#else
 #include <obs-module.h>
+#endif
 #include <sstream>
+
 
 static const char* BIBLE_BOOK_NAMES[] = {
     "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy",
@@ -60,6 +68,7 @@ void HomeInDB::RunMigration() {
     sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN language_code TEXT DEFAULT 'en';", nullptr, nullptr, nullptr);
     sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN translation_family TEXT DEFAULT 'English';", nullptr, nullptr, nullptr);
     sqlite3_exec(db, "ALTER TABLE translations ADD COLUMN source_notes TEXT DEFAULT '';", nullptr, nullptr, nullptr);
+    sqlite3_exec(db, "UPDATE translations SET abbreviation = 'KJV' WHERE abbreviation = 'KJ';", nullptr, nullptr, nullptr);
 
     sqlite3_exec(db, 
         "CREATE TABLE IF NOT EXISTS books ("
@@ -92,6 +101,20 @@ void HomeInDB::RunMigration() {
     }
 
     sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_v_lookup ON verses(book_id, chapter, verse);", nullptr, nullptr, nullptr);
+
+    sqlite3_stmt* fts_check = nullptr;
+    bool fts_missing = true;
+    if (sqlite3_prepare_v2(db, "SELECT 1 FROM sqlite_master WHERE type='table' AND name='verses_fts'", -1, &fts_check, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(fts_check) == SQLITE_ROW) {
+            fts_missing = false;
+        }
+        sqlite3_finalize(fts_check);
+    }
+    if (fts_missing) {
+        blog(LOG_INFO, "HomeIndeed: Rebuilding missing verses_fts FTS5 shadow table...");
+        sqlite3_exec(db, "CREATE VIRTUAL TABLE IF NOT EXISTS verses_fts USING fts5(text, content='verses', content_rowid='id');", nullptr, nullptr, nullptr);
+        sqlite3_exec(db, "INSERT INTO verses_fts(verses_fts) VALUES('rebuild');", nullptr, nullptr, nullptr);
+    }
 }
 
 void HomeInDB::ValidateDatabase() {
@@ -112,10 +135,10 @@ bool HomeInDB::GetVerse(const std::string& book_name, int chapter, int verse,
         "FROM verses v "
         "JOIN books b ON v.book_id = b.id "
         "JOIN translations t ON v.translation_id = t.id "
-        "WHERE (b.name = ? OR b.abbreviation = ?) "
+        "WHERE (b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?) "
         "AND CAST(v.chapter AS INTEGER) = ? "
         "AND CAST(v.verse AS INTEGER) = ? "
-        "AND t.abbreviation = ? "
+        "AND t.abbreviation COLLATE NOCASE = ? "
         "LIMIT 1";
 
     sqlite3_stmt* stmt;
@@ -160,10 +183,10 @@ std::vector<BibleVerse> HomeInDB::GetRangeVerses(const std::string& book_name, i
         "FROM verses v "
         "JOIN books b ON v.book_id = b.id "
         "JOIN translations t ON v.translation_id = t.id "
-        "WHERE (b.name = ? OR b.abbreviation = ?) "
+        "WHERE (b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?) "
         "AND CAST(v.chapter AS INTEGER) = ? "
         "AND verse_num >= ? AND verse_num <= ? "
-        "AND t.abbreviation = ? "
+        "AND t.abbreviation COLLATE NOCASE = ? "
         "ORDER BY verse_num ASC";
 
     sqlite3_stmt* stmt;
@@ -204,7 +227,7 @@ int HomeInDB::GetChapterCount(const std::string& book_name) {
     const char* sql =
         "SELECT MAX(CAST(v.chapter AS INTEGER)) FROM verses v "
         "JOIN books b ON v.book_id = b.id "
-        "WHERE b.name = ? OR b.abbreviation = ?";
+        "WHERE b.name COLLATE NOCASE = ? OR b.abbreviation COLLATE NOCASE = ?";
 
     sqlite3_stmt* stmt;
     int count = 0;
@@ -220,15 +243,17 @@ int HomeInDB::GetChapterCount(const std::string& book_name) {
 
 std::vector<BibleVerse> HomeInDB::SearchVerses(const std::string& query, int limit) {
     std::vector<BibleVerse> results;
-    if (!db) return results;
+    if (!db || query.empty()) return results;
 
+    // 1. Try FTS5 search
     const char* sql =
         "SELECT v.text, b.name, t.abbreviation, "
         "CAST(v.chapter AS INTEGER), CAST(v.verse AS INTEGER) "
-        "FROM verses v "
+        "FROM verses_fts f "
+        "JOIN verses v ON f.rowid = v.id "
         "JOIN books b ON v.book_id = b.id "
         "JOIN translations t ON v.translation_id = t.id "
-        "WHERE verses MATCH ? "
+        "WHERE verses_fts MATCH ? "
         "ORDER BY rank "
         "LIMIT ?";
 
@@ -251,6 +276,37 @@ std::vector<BibleVerse> HomeInDB::SearchVerses(const std::string& query, int lim
         }
         sqlite3_finalize(stmt);
     }
+
+    // 2. Fallback to LIKE if FTS produced no results
+    if (results.empty()) {
+        const char* like_sql =
+            "SELECT v.text, b.name, t.abbreviation, "
+            "CAST(v.chapter AS INTEGER), CAST(v.verse AS INTEGER) "
+            "FROM verses v "
+            "JOIN books b ON v.book_id = b.id "
+            "JOIN translations t ON v.translation_id = t.id "
+            "WHERE v.text LIKE ? "
+            "LIMIT ?";
+        if (sqlite3_prepare_v2(db, like_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            std::string pat = "%" + query + "%";
+            sqlite3_bind_text(stmt, 1, pat.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt, 2, limit);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                BibleVerse v;
+                const char* text  = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+                const char* bname = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                const char* tabbr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+                v.text             = text  ? text  : "";
+                v.book_name        = bname ? bname : "";
+                v.translation_abbr = tabbr ? tabbr : "";
+                v.chapter          = sqlite3_column_int(stmt, 3);
+                v.verse            = sqlite3_column_int(stmt, 4);
+                results.push_back(v);
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
     return results;
 }
 
@@ -267,17 +323,18 @@ std::vector<BibleVerse> HomeInDB::FuzzySearch(const std::string& text, int limit
 
     const char* sql = R"(
         SELECT v.chapter, v.verse, b.name, t.abbreviation, v.text
-        FROM verses v
+        FROM verses_fts f
+        JOIN verses v ON f.rowid = v.id
         JOIN books b ON v.book_id = b.id
         JOIN translations t ON v.translation_id = t.id
-        WHERE verses MATCH ?
+        WHERE verses_fts MATCH ?
         ORDER BY rank
         LIMIT ?;
     )";
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        std::string fts_query = clean_query + "*";
+        std::string fts_query = clean_query;
         sqlite3_bind_text(stmt, 1, fts_query.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmt, 2, limit);
 
@@ -292,6 +349,34 @@ std::vector<BibleVerse> HomeInDB::FuzzySearch(const std::string& text, int limit
         }
         sqlite3_finalize(stmt);
     }
+
+    // Fallback to LIKE if FTS produced no results
+    if (results.empty()) {
+        const char* like_sql = R"(
+            SELECT v.chapter, v.verse, b.name, t.abbreviation, v.text
+            FROM verses v
+            JOIN books b ON v.book_id = b.id
+            JOIN translations t ON v.translation_id = t.id
+            WHERE v.text LIKE ?
+            LIMIT ?;
+        )";
+        if (sqlite3_prepare_v2(db, like_sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            std::string pat = "%" + text + "%";
+            sqlite3_bind_text(stmt, 1, pat.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_int(stmt, 2, limit);
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                BibleVerse v;
+                v.chapter = sqlite3_column_int(stmt, 0);
+                v.verse = sqlite3_column_int(stmt, 1);
+                v.book_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+                v.translation_abbr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+                v.text = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+                results.push_back(v);
+            }
+            sqlite3_finalize(stmt);
+        }
+    }
+
     return results;
 }
 

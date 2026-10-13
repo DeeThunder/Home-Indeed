@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <sstream>
 
 static bool iequals(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -53,15 +54,38 @@ static const std::map<std::string, std::string> BOOK_ALIASES = {
     {"Ifihan", "Revelation"}, {"Wahayin", "Revelation"}, {"Nkpughe", "Revelation"}
 };
 
-static std::string ResolveBookAlias(const std::string& book_candidate) {
-    for (const auto& pair : BOOK_ALIASES) {
-        if (iequals(book_candidate, pair.first)) return pair.second;
+std::string ResolveBookAlias(const std::string& book_candidate) {
+    auto match_exact = [](const std::string& str) -> std::string {
+        for (const auto& pair : BOOK_ALIASES) {
+            if (iequals(str, pair.first)) return pair.second;
+        }
+        for (const auto& book : BIBLE_BOOKS) {
+            if (iequals(str, book)) return book;
+        }
+        return {};
+    };
+
+    std::string direct = match_exact(book_candidate);
+    if (!direct.empty()) return direct;
+
+    std::vector<std::string> words;
+    std::istringstream iss(book_candidate);
+    std::string w;
+    while (iss >> w) words.push_back(w);
+
+    for (size_t num_words = std::min<size_t>(3, words.size()); num_words >= 1; --num_words) {
+        std::string suffix;
+        for (size_t i = words.size() - num_words; i < words.size(); ++i) {
+            if (!suffix.empty()) suffix += " ";
+            suffix += words[i];
+        }
+        std::string res = match_exact(suffix);
+        if (!res.empty()) return res;
     }
-    for (const auto& book : BIBLE_BOOKS) {
-        if (iequals(book_candidate, book)) return book;
-    }
+
     return {};
 }
+
 
 static std::string NormalizeSpokenNumbers(const std::string& t) {
     std::string out = t;
