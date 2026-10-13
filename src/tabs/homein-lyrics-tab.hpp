@@ -5,7 +5,8 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QLabel>
-#include <QVBoxLayout>
+#include <QComboBox>
+#include <QMenu>
 #include "../detection/homein-lyrics-engine.hpp"
 
 class HomeInLyricsTab : public QWidget {
@@ -34,6 +35,8 @@ private:
     QListWidget* sections_list;
     QPushButton* library_btn;
     QPushButton* add_song_btn;
+    QPushButton* edit_song_btn;
+    QComboBox* lines_per_slide_combo;
     QPushButton* push_live_btn;
     QPushButton* add_queue_btn;
     int search_request_id = 0;
@@ -43,7 +46,10 @@ private slots:
     void OnSearchTriggered();
     void OnLibraryClicked();
     void OnAddSongClicked();
+    void OnEditSongClicked();
     void OnSongSelected();
+    void OnLinesPerSlideChanged(int index);
+    void OnSongsListContextMenu(const QPoint& pos);
     void OnPushLiveClicked();
     void OnQueueClicked();
 };

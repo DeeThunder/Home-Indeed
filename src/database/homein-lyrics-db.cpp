@@ -224,6 +224,49 @@ bool HomeInLyricsDB::AddSong(const std::string& title, const std::string& artist
     return rc == SQLITE_DONE;
 }
 
+bool HomeInLyricsDB::UpdateSong(int id, const std::string& title, const std::string& artist,
+                                const std::string& content) {
+    if (!db || id <= 0) return false;
+
+    const char* sql =
+        "UPDATE lyrics SET title = ?, artist = ?, content = ?, "
+        "normalized_key = ?, content_hash = ?, last_updated = CURRENT_TIMESTAMP "
+        "WHERE id = ?";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+
+    const std::string normalized_key = BuildSongKey(title, artist);
+    const std::string content_hash = BuildContentHash(content);
+
+    sqlite3_bind_text(stmt, 1, title.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, artist.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 3, content.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 4, normalized_key.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 5, content_hash.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 6, id);
+
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_DONE;
+}
+
+bool HomeInLyricsDB::DeleteSong(int id) {
+    if (!db || id <= 0) return false;
+
+    const char* sql = "DELETE FROM lyrics WHERE id = ?";
+    sqlite3_stmt* stmt;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK)
+        return false;
+
+    sqlite3_bind_int(stmt, 1, id);
+    int rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+    return rc == SQLITE_DONE;
+}
+
 bool HomeInLyricsDB::FindSong(const std::string& title, const std::string& artist,
                                SongLyric& out_song) {
     if (!db) return false;

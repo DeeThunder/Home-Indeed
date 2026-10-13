@@ -28,6 +28,9 @@ public:
 
     bool AddSong(const std::string& title, const std::string& artist,
                  const std::string& content, const std::string& source);
+    bool UpdateSong(int id, const std::string& title, const std::string& artist,
+                    const std::string& content);
+    bool DeleteSong(int id);
 
     std::vector<SongLyric> Search(const std::string& query, int limit = 50);
     std::vector<SongLyric> GetLibrary(int limit = 100);

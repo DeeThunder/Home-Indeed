@@ -211,4 +211,7 @@ bool HomeInSettingsTab::AutoSwitchTabs() const { return auto_switch_tabs_checkbo
 QString HomeInSettingsTab::GetDeepgramKey() const { return deepgram_key_edit->text(); }
 QString HomeInSettingsTab::GetLanguageCode() const { return language_combo->currentData().toString(); }
 QString HomeInSettingsTab::GetPerformanceMode() const { return performance_combo->currentData().toString(); }
-int HomeInSettingsTab::GetLinesPerPage() const { return 4; }
+int HomeInSettingsTab::GetLinesPerPage() const {
+    QSettings settings("HomeIndeed", "Plugin");
+    return settings.value("lyrics_lines_per_slide", 2).toInt();
+}

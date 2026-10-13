@@ -233,11 +233,14 @@ install(
 
 if(WIN32)
   set(CPACK_GENERATOR "NSIS;ZIP")
+  set(CPACK_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/windows")
   set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
   set(CPACK_PACKAGE_INSTALL_DIRECTORY "obs-studio")
+  set(CPACK_PACKAGE_INSTALL_REGISTRY_KEY "HomeIndeed")
   set(CPACK_NSIS_REQUEST_EXECUTION_LEVEL "admin")
   if(EXISTS "${CMAKE_SOURCE_DIR}/installer-logo.ico")
     set(CPACK_NSIS_MUI_ICON "${CMAKE_SOURCE_DIR}/installer-logo.ico")
+    set(CPACK_NSIS_MUI_UNIICON "${CMAKE_SOURCE_DIR}/installer-logo.ico")
   else()
     message(WARNING "installer-logo.ico was not found; NSIS will use its default installer icon.")
   endif()
@@ -253,12 +256,16 @@ if(WIN32)
     StrCmp $0 '0' 0 +2
       MessageBox MB_OK|MB_ICONEXCLAMATION 'OBS Studio is running. Please close OBS Studio before continuing installation.'
 
+    ; Clean up legacy standalone home-indeed folder if left over from older builds
+    RMDir /r '$INSTDIR\\\\home-indeed'
+
     ; Register standalone entry in Windows Control Panel / Apps & Features
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayName' 'Home Indeed OBS Plugin'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayVersion' '${_version}'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'Publisher' 'Home Indeed Team'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'UninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\"'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'QuietUninstallString' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\" /S'
+    WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'DisplayIcon' '$\\\"$INSTDIR\\\\Uninstall-HomeIndeed.exe$\\\",0'
     WriteRegStr HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'InstallLocation' '$INSTDIR'
     WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoModify' 1
     WriteRegDWORD HKLM 'Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Uninstall\\\\HomeIndeed' 'NoRepair' 1

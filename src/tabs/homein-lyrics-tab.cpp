@@ -4,6 +4,8 @@
 #include <QDialog>
 #include <QFormLayout>
 #include <QTextEdit>
+#include <QSettings>
+#include <QLabel>
 
 HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent) 
     : QWidget(parent), lyrics_engine(engine) {
@@ -18,7 +20,6 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     search_box->setPlaceholderText("Search song or artist...");
     QPushButton* search_btn = new QPushButton("Search");
     library_btn = new QPushButton("Library");
-    add_song_btn = new QPushButton("+ Add Song");
     allow_web_checkbox = new QCheckBox("Web");
     allow_web_checkbox->setToolTip("Allow searching online web lyrics (LRCLIB)");
     allow_web_checkbox->setChecked(true);
@@ -26,15 +27,39 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     search_layout->addWidget(search_box, 1);
     search_layout->addWidget(search_btn);
     search_layout->addWidget(library_btn);
-    search_layout->addWidget(add_song_btn);
     search_layout->addWidget(allow_web_checkbox);
     layout->addLayout(search_layout);
+
+    // Secondary Toolbar: Add Song, Edit Song, Lines/Slide selector
+    QHBoxLayout* tool_layout = new QHBoxLayout();
+    add_song_btn = new QPushButton("+ Add Song");
+    edit_song_btn = new QPushButton("Edit Song");
+    edit_song_btn->setEnabled(false);
+
+    QLabel* lines_lbl = new QLabel("Lines/Slide:");
+    lines_per_slide_combo = new QComboBox();
+    lines_per_slide_combo->addItem("2 Lines (Lower-Third)", 2);
+    lines_per_slide_combo->addItem("4 Lines (Full Stanza)", 4);
+    lines_per_slide_combo->addItem("Entire Paragraph", 0);
+
+    QSettings settings("HomeIndeed", "Plugin");
+    int saved_lines = settings.value("lyrics_lines_per_slide", 2).toInt();
+    int idx = lines_per_slide_combo->findData(saved_lines);
+    if (idx >= 0) lines_per_slide_combo->setCurrentIndex(idx);
+
+    tool_layout->addWidget(add_song_btn);
+    tool_layout->addWidget(edit_song_btn);
+    tool_layout->addStretch();
+    tool_layout->addWidget(lines_lbl);
+    tool_layout->addWidget(lines_per_slide_combo);
+    layout->addLayout(tool_layout);
 
     // Splitter for Songs and Sections
     QSplitter* splitter = new QSplitter(Qt::Vertical);
     
     songs_list = new QListWidget();
     songs_list->setMinimumHeight(60);
+    songs_list->setContextMenuPolicy(Qt::CustomContextMenu);
     sections_list = new QListWidget();
     sections_list->setMinimumHeight(60);
     sections_list->setWordWrap(true);
@@ -62,6 +87,9 @@ HomeInLyricsTab::HomeInLyricsTab(HomeInLyricsEngine& engine, QWidget *parent)
     connect(search_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(library_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnLibraryClicked);
     connect(add_song_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnAddSongClicked);
+    connect(edit_song_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnEditSongClicked);
+    connect(lines_per_slide_combo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &HomeInLyricsTab::OnLinesPerSlideChanged);
+    connect(songs_list, &QListWidget::customContextMenuRequested, this, &HomeInLyricsTab::OnSongsListContextMenu);
     connect(search_box, &QLineEdit::returnPressed, this, &HomeInLyricsTab::OnSearchTriggered);
     connect(songs_list, &QListWidget::itemSelectionChanged, this, &HomeInLyricsTab::OnSongSelected);
     connect(push_live_btn, &QPushButton::clicked, this, &HomeInLyricsTab::OnPushLiveClicked);
@@ -128,60 +156,75 @@ void HomeInLyricsTab::OnLibraryClicked() {
 
 void HomeInLyricsTab::OnSongSelected() {
     sections_list->clear();
-    if (QListWidgetItem* item = songs_list->currentItem()) {
-        QString full_lyrics = item->data(Qt::UserRole + 1).toString();
-        if (full_lyrics.isEmpty()) {
-            SongLyric song;
-            if (lyrics_engine.GetDB().FindSongById(item->data(Qt::UserRole).toInt(), song)) {
-                full_lyrics = QString::fromStdString(song.content);
-                item->setData(Qt::UserRole + 1, full_lyrics);
-            }
+    QListWidgetItem* item = songs_list->currentItem();
+    if (!item) {
+        if (edit_song_btn) edit_song_btn->setEnabled(false);
+        sections_list->setVisible(false);
+        return;
+    }
+
+    int song_id = item->data(Qt::UserRole).toInt();
+    if (edit_song_btn) edit_song_btn->setEnabled(song_id > 0);
+
+    QString full_lyrics = item->data(Qt::UserRole + 1).toString();
+    if (full_lyrics.isEmpty() && song_id > 0) {
+        SongLyric song;
+        if (lyrics_engine.GetDB().FindSongById(song_id, song)) {
+            full_lyrics = QString::fromStdString(song.content);
+            item->setData(Qt::UserRole + 1, full_lyrics);
         }
-        if (full_lyrics.isEmpty()) {
-            sections_list->setVisible(false);
-            return;
-        }
+    }
+    if (full_lyrics.isEmpty()) {
+        sections_list->setVisible(false);
+        return;
+    }
 
-        // Split by natural paragraph breaks (double newlines)
-        QString normalized = full_lyrics;
-        normalized.replace("\r\n", "\n").replace('\r', '\n');
-        QStringList paragraphs = normalized.split(QRegularExpression("\\n\\s*\\n+"), Qt::SkipEmptyParts);
+    int lines_limit = 2;
+    if (lines_per_slide_combo) {
+        lines_limit = lines_per_slide_combo->currentData().toInt();
+    }
 
-        // Fallback: If no paragraph breaks exist, split by single lines
-        if (paragraphs.size() <= 1 && normalized.count('\n') > 4) {
-            paragraphs = normalized.split('\n', Qt::SkipEmptyParts);
-        }
+    // Split by natural paragraph breaks (double newlines)
+    QString normalized = full_lyrics;
+    normalized.replace("\r\n", "\n").replace('\r', '\n');
+    QStringList paragraphs = normalized.split(QRegularExpression("\\n\\s*\\n+"), Qt::SkipEmptyParts);
 
-        for (const QString& para : paragraphs) {
-            QString trimmed_para = para.trimmed();
-            if (trimmed_para.isEmpty()) continue;
+    // Fallback: If no paragraph breaks exist, split by single lines
+    if (paragraphs.size() <= 1 && normalized.count('\n') > 4) {
+        paragraphs = normalized.split('\n', Qt::SkipEmptyParts);
+    }
 
+    for (const QString& para : paragraphs) {
+        QString trimmed_para = para.trimmed();
+        if (trimmed_para.isEmpty()) continue;
+
+        if (lines_limit <= 0) {
+            // Entire paragraph / stanza in one slide
+            QListWidgetItem* sec_item = new QListWidgetItem(trimmed_para, sections_list);
+            sec_item->setData(Qt::UserRole, "\x01" + trimmed_para);
+        } else {
             QStringList lines = trimmed_para.split('\n', Qt::SkipEmptyParts);
-            if (lines.size() <= 4) {
-                // Natural stanza fits neatly in a single slide
-                QListWidgetItem* sec_item = new QListWidgetItem(trimmed_para, sections_list);
-                sec_item->setData(Qt::UserRole, "\x01" + trimmed_para);
-            } else {
-                // Split unusually long stanzas cleanly into 2-to-4 line presentation chunks
-                QString current_chunk = "";
-                for (int i = 0; i < lines.size(); ++i) {
-                    current_chunk += lines[i].trimmed() + "\n";
-                    if ((i + 1) % 4 == 0 || i == lines.size() - 1) {
-                        QString clean_chunk = current_chunk.trimmed();
+            QString current_chunk = "";
+            int line_count = 0;
+            for (int i = 0; i < lines.size(); ++i) {
+                current_chunk += lines[i].trimmed() + "\n";
+                line_count++;
+                if (line_count >= lines_limit || i == lines.size() - 1) {
+                    QString clean_chunk = current_chunk.trimmed();
+                    if (!clean_chunk.isEmpty()) {
                         QListWidgetItem* sec_item = new QListWidgetItem(clean_chunk, sections_list);
                         sec_item->setData(Qt::UserRole, "\x01" + clean_chunk);
-                        current_chunk = "";
                     }
+                    current_chunk = "";
+                    line_count = 0;
                 }
             }
         }
+    }
 
-        if (sections_list->count() > 0) {
-            sections_list->setCurrentRow(0);
-            sections_list->setVisible(true);
-        } else {
-            sections_list->setVisible(false);
-        }
+    if (sections_list->count() > 0) {
+        sections_list->setCurrentRow(0);
+        sections_list->setVisible(true);
     } else {
         sections_list->setVisible(false);
     }
@@ -438,4 +481,119 @@ void HomeInLyricsTab::OnAddSongClicked() {
         }
     }
 }
+
+void HomeInLyricsTab::OnEditSongClicked() {
+    QListWidgetItem* item = songs_list->currentItem();
+    if (!item) return;
+
+    int song_id = item->data(Qt::UserRole).toInt();
+    if (song_id <= 0) return;
+
+    SongLyric song;
+    if (!lyrics_engine.GetDB().FindSongById(song_id, song)) {
+        QMessageBox::warning(this, "Edit Song", "Unable to load song from database.");
+        return;
+    }
+
+    QDialog dlg(this);
+    dlg.setWindowTitle("Edit Song - " + QString::fromStdString(song.title));
+    dlg.setMinimumSize(480, 440);
+
+    QVBoxLayout* dlg_layout = new QVBoxLayout(&dlg);
+    dlg_layout->setContentsMargins(12, 12, 12, 12);
+    dlg_layout->setSpacing(8);
+
+    QFormLayout* form = new QFormLayout();
+    QLineEdit* title_edit = new QLineEdit(QString::fromStdString(song.title), &dlg);
+    QLineEdit* artist_edit = new QLineEdit(QString::fromStdString(song.artist), &dlg);
+    form->addRow("Song Title:", title_edit);
+    form->addRow("Artist / Author:", artist_edit);
+    dlg_layout->addLayout(form);
+
+    QLabel* content_lbl = new QLabel("Lyrics (stanza separated by blank lines):", &dlg);
+    QTextEdit* content_edit = new QTextEdit(&dlg);
+    content_edit->setPlainText(QString::fromStdString(song.content));
+    dlg_layout->addWidget(content_lbl);
+    dlg_layout->addWidget(content_edit, 1);
+
+    QHBoxLayout* btn_layout = new QHBoxLayout();
+    QPushButton* save_btn = new QPushButton("Save Changes", &dlg);
+    QPushButton* cancel_btn = new QPushButton("Cancel", &dlg);
+    btn_layout->addStretch();
+    btn_layout->addWidget(save_btn);
+    btn_layout->addWidget(cancel_btn);
+    dlg_layout->addLayout(btn_layout);
+
+    connect(cancel_btn, &QPushButton::clicked, &dlg, &QDialog::reject);
+    connect(save_btn, &QPushButton::clicked, [&]() {
+        QString title = title_edit->text().trimmed();
+        QString artist = artist_edit->text().trimmed();
+        QString content = content_edit->toPlainText().trimmed();
+
+        if (title.isEmpty()) {
+            QMessageBox::warning(&dlg, "Missing Title", "Please enter a song title.");
+            return;
+        }
+        if (content.isEmpty()) {
+            QMessageBox::warning(&dlg, "Missing Lyrics", "Song lyrics cannot be empty.");
+            return;
+        }
+
+        if (lyrics_engine.GetDB().UpdateSong(song_id, title.toStdString(), artist.toStdString(), content.toStdString())) {
+            dlg.accept();
+        } else {
+            QMessageBox::critical(&dlg, "Save Failed", "Failed to update song in database.");
+        }
+    });
+
+    if (dlg.exec() == QDialog::Accepted) {
+        QString updated_title = title_edit->text().trimmed();
+        QString updated_artist = artist_edit->text().trimmed();
+        QString updated_content = content_edit->toPlainText().trimmed();
+
+        QString display = QString("%1 - %2").arg(updated_title, updated_artist);
+        item->setText(display);
+        item->setData(Qt::UserRole + 1, updated_content);
+        OnSongSelected();
+    }
+}
+
+void HomeInLyricsTab::OnLinesPerSlideChanged(int index) {
+    Q_UNUSED(index);
+    if (!lines_per_slide_combo) return;
+    int lines = lines_per_slide_combo->currentData().toInt();
+    QSettings settings("HomeIndeed", "Plugin");
+    settings.setValue("lyrics_lines_per_slide", lines);
+    OnSongSelected();
+}
+
+void HomeInLyricsTab::OnSongsListContextMenu(const QPoint& pos) {
+    QListWidgetItem* item = songs_list->itemAt(pos);
+    if (!item) return;
+
+    int song_id = item->data(Qt::UserRole).toInt();
+    if (song_id <= 0) return;
+
+    QMenu menu(this);
+    QAction* edit_act = menu.addAction("Edit Song...");
+    QAction* delete_act = menu.addAction("Delete Song from Library");
+
+    QAction* selected = menu.exec(songs_list->mapToGlobal(pos));
+    if (selected == edit_act) {
+        OnEditSongClicked();
+    } else if (selected == delete_act) {
+        auto reply = QMessageBox::question(this, "Delete Song",
+            QString("Are you sure you want to delete '%1' from your library?").arg(item->text()),
+            QMessageBox::Yes | QMessageBox::No);
+        if (reply == QMessageBox::Yes) {
+            if (lyrics_engine.GetDB().DeleteSong(song_id)) {
+                delete item;
+                sections_list->clear();
+                sections_list->setVisible(false);
+                if (edit_song_btn) edit_song_btn->setEnabled(false);
+            }
+        }
+    }
+}
+
 
